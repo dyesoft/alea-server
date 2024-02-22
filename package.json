@@ -1,0 +1,52 @@
+{
+  "name": "@dyesoft/alea-server",
+  "version": "0.1.0",
+  "description": "Server for the Alea game engine",
+  "keywords": [
+    "alea",
+    "game engine"
+  ],
+  "main": "src/index.mjs",
+  "type": "module",
+  "scripts": {
+    "build": "babel src -d dist",
+    "test": "jest --config jest.config.mjs"
+  },
+  "author": {
+    "name": "William Dye",
+    "email": "william@williamdye.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dyesoft/alea-server.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@dyesoft/alea-core": "^0.2.5",
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.19.0",
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "express-ws": "^4.0.0",
+    "http": "^0.0.1-security",
+    "https": "^1.0.0",
+    "log": "^6.0.0",
+    "log-node": "^7.0.0",
+    "mongodb": "^3.6.6",
+    "nodemailer": "^6.6.3",
+    "uuid": "^3.4.0"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.21.0",
+    "@babel/core": "^7.21.0",
+    "@babel/preset-env": "^7.20.2",
+    "@jest/globals": "^29.5.0",
+    "@shelf/jest-mongodb": "^4.2.0",
+    "babel-jest": "^29.5.0",
+    "jest": "^29.5.0",
+    "supertest": "^6.3.4"
+  }
+}
