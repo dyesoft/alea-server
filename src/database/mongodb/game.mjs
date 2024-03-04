@@ -5,6 +5,8 @@ export default class GameCollection extends MongoCollection {
     /* Create a new game collection using the given database. */
     constructor(db) {
         super(db, 'games', 'gameID');
+
+        this.addPlayerToGame = this.addPlayerToGame.bind(this);
     }
 
     /* Add the given player to the given game. */

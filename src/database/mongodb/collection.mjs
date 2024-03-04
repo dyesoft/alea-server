@@ -25,6 +25,14 @@ export default class MongoCollection {
         this.entityName = collectionName.endsWith('s') ? collectionName.substring(0, collectionName.length - 1) : collectionName;
         this.collection = db.collection(collectionName);
         this.pageSize = pageSize;
+
+        this.create = this.create.bind(this);
+        this.count = this.count.bind(this);
+        this.getPaginatedList = this.getPaginatedList.bind(this);
+        this.getByID = this.getByID.bind(this);
+        this.getByIDs = this.getByIDs.bind(this);
+        this.updateFieldsByID = this.updateFieldsByID.bind(this);
+        this.updateByID = this.updateByID.bind(this);
     }
 
     /* Create a new record in the collection after ensuring that it has a unique ID. */

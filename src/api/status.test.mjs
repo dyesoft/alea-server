@@ -40,7 +40,7 @@ describe('StatusAPI', () => {
             const api = new StatusAPI({command: mockCommand}, '1.2.3');
             const response = await app(api).get('/health');
             expect(response.status).toEqual(StatusCodes.SERVICE_UNAVAILABLE);
-            expect(response.text).toMatch('Error: Health check failed');
+            expect(response.body.error).toEqual('Health check failed');
         });
     });
 

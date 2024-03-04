@@ -173,9 +173,6 @@ describe('MongoCollection', () => {
 
         test('with array filters', async () => {
             const widgetID = 'widget';
-            const updates = {
-                $set: {'subWidgets.$[subWidget].name': 'test update'},
-            };
             await collection.create({widgetID: widgetID, subWidgets: [{name: 'foo'}, {name: 'test'}]});
             await collection.updateFieldsByID(
                 widgetID,

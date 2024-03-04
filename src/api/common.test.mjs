@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { StatusCodes } from '@dyesoft/alea-core';
-import { APIError, APIRouteDefinition, PaginationResponse } from './common.mjs';
+import { APIError, apiErrorHandler, APIRouteDefinition, PaginationResponse } from './common.mjs';
 
 describe('APIError', () => {
     test('constructor', () => {
@@ -9,6 +9,35 @@ describe('APIError', () => {
         const error = new APIError(errorMessage, status);
         expect(error.message).toEqual(errorMessage);
         expect(error.status).toEqual(status);
+    });
+});
+
+describe('apiErrorHandler', () => {
+    test('handles APIError as JSON', () => {
+        const error = new APIError('Test error', StatusCodes.INTERNAL_SERVER_ERROR);
+        const mockStatus = jest.fn();
+        const mockJSON = jest.fn();
+        const mockNext = jest.fn();
+        const mockRes = {status: mockStatus, json: mockJSON};
+        apiErrorHandler(error, null, mockRes, mockNext);
+        expect(mockStatus).toHaveBeenCalledWith(error.status);
+        expect(mockJSON).toHaveBeenCalledWith({
+            error: error.message,
+            status: error.status,
+        });
+        expect(mockNext).not.toHaveBeenCalled();
+    });
+
+    test('passes other errors to next handler', () => {
+        const error = new Error('Test error');
+        const mockStatus = jest.fn();
+        const mockJSON = jest.fn();
+        const mockNext = jest.fn();
+        const mockRes = {status: mockStatus, json: mockJSON};
+        apiErrorHandler(error, null, mockRes, mockNext);
+        expect(mockNext).toHaveBeenCalledWith(error);
+        expect(mockStatus).not.toHaveBeenCalled();
+        expect(mockJSON).not.toHaveBeenCalled();
     });
 });
 
@@ -102,6 +131,50 @@ describe('APIRouteDefinition', () => {
             const def = new APIRouteDefinition();
             const req = {query: {}};
             expect(def.getPageParam(req)).toEqual(1);
+        });
+    });
+
+    describe('getPaginationResponse', () => {
+        const ITEM_KEY = 'widgets';
+
+        test('throws error for invalid page', async () => {
+            const def = new APIRouteDefinition();
+            const req = {query: {page: 'foo'}};
+            await expect(async () => await def.getPaginationResponse(req, ITEM_KEY, null, null)).rejects.toThrow(APIError);
+        });
+
+        test('throws error if count fails', async () => {
+            const count = jest.fn().mockRejectedValue(new Error('test error'));
+            const def = new APIRouteDefinition();
+            const req = {query: {page: '2'}};
+            await expect(async () => await def.getPaginationResponse(req, ITEM_KEY, count, null)).rejects.toThrow(APIError);
+        });
+
+        test('throws error if page is too high', async () => {
+            const count = jest.fn().mockResolvedValue(1);
+            const def = new APIRouteDefinition();
+            const req = {query: {page: '2'}};
+            await expect(async () => await def.getPaginationResponse(req, ITEM_KEY, count, null)).rejects.toThrow(APIError);
+        });
+
+        test('throws error if getPaginatedList fails', async () => {
+            const count = jest.fn().mockResolvedValue(1);
+            const getPaginatedList = jest.fn().mockRejectedValue(new Error('test error'));
+            const def = new APIRouteDefinition();
+            const req = {query: {page: '2'}};
+            await expect(async () => await def.getPaginationResponse(req, ITEM_KEY, count, getPaginatedList)).rejects.toThrow(APIError);
+        });
+
+        test('returns PaginationResponse with expected fields on success', async() => {
+            const widgets = [{widgetID: 'widget', name: 'foo'}];
+            const total = widgets.length;
+            const page = 1;
+            const count = jest.fn().mockResolvedValue(total);
+            const getPaginatedList = jest.fn().mockResolvedValue(widgets);
+            const def = new APIRouteDefinition();
+            const req = {query: {page: `${page}`}};
+            const response = await def.getPaginationResponse(req, ITEM_KEY, count, getPaginatedList);
+            expect(response).toEqual(new PaginationResponse(false, total, page, widgets, ITEM_KEY));
         });
     });
 

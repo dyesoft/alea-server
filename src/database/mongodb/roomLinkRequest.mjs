@@ -6,6 +6,12 @@ export default class RoomLinkRequestCollection extends MongoCollection {
     /* Create a new room link request collection using the given database. */
     constructor(db) {
         super(db, 'roomLinkRequests', 'requestID');
+
+        this.count = this.count.bind(this);
+        this.getPageOfRoomLinkRequests = this.getPageOfRoomLinkRequests.bind(this);
+        this.getByEmail = this.getByEmail.bind(this);
+        this.resolveByID = this.resolveByID.bind(this);
+        this.setRoomByID = this.setRoomByID.bind(this);
     }
 
     /* Return the total number of requests in the collection, optionally filtered by resolution status. */

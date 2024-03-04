@@ -12,6 +12,17 @@ export default class RoomCollection extends MongoCollection {
     /* Create a new room collection using the given database. */
     constructor(db) {
         super(db, 'rooms', 'roomID');
+
+        this.create = this.create.bind(this);
+        this.generateUniqueRoomCode = this.generateUniqueRoomCode.bind(this);
+        this.getByRoomCode = this.getByRoomCode.bind(this);
+        this.setCurrentGameForRoom = this.setCurrentGameForRoom.bind(this);
+        this.addPlayerToRoom = this.addPlayerToRoom.bind(this);
+        this.removePlayerFromRoom = this.removePlayerFromRoom.bind(this);
+        this.removePlayerFromKickedPlayersInRoom = this.removePlayerFromKickedPlayersInRoom.bind(this);
+        this.getHistoryByID = this.getHistoryByID.bind(this);
+        this.getHistoryByRoomCode = this.getHistoryByRoomCode.bind(this);
+        this.getHistoryByCriteria = this.getHistoryByCriteria.bind(this);
     }
 
     /* Create a new room in the collection. */

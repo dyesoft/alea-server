@@ -1,6 +1,5 @@
 import log from 'log';
 import { EventTypes, MAX_EMAIL_LENGTH, Player, StatusCodes, validateEmail, validatePlayerName, WebsocketEvent } from '@dyesoft/alea-core';
-import { PAGE_SIZE } from '../database/constants.mjs';
 import { broadcast, playerNames } from '../websockets.mjs';
 import { APIError, APIRouteDefinition, PaginationResponse } from './common.mjs';
 
@@ -8,7 +7,7 @@ const logger = log.get('api:player');
 
 /* API route definition for player-related endpoints. */
 class PlayerAPI extends APIRouteDefinition {
-    /* Create a new Player API using the given database connection. */
+    /* Create a new Player API using the given database connection and mailer. */
     constructor(db, mailer) {
         super(db, mailer);
         this.get('/', this.handleGetPlayers.bind(this));
@@ -58,14 +57,6 @@ class PlayerAPI extends APIRouteDefinition {
             return;
         }
 
-        let page;
-        try {
-            page = this.getPageParam(req);
-        } catch (e) {
-            error(e.message, e.status);
-            return;
-        }
-
         const activeParam = req.query.active;
         let active = null;
         if (activeParam) {
@@ -77,35 +68,15 @@ class PlayerAPI extends APIRouteDefinition {
             active = (active === 'true');
         }
 
-        let count = 0;
-        let hasMore = false;
-        let players = [];
-
+        let response;
         try {
-            count = await this.db.players.count(active);
+            response = await this.getPaginationResponse(req, 'players', this.db.players.count, this.db.players.getPageOfPlayers, [active]);
         } catch (e) {
-            logger.error(`Failed to get count of players: ${e}`);
-            error('Failed to get count of players', StatusCodes.INTERNAL_SERVER_ERROR);
+            error(e.message, e.status);
             return;
         }
 
-        if (page > 1 && count <= (page - 1) * PAGE_SIZE) {
-            error(`Invalid page "${page}"`, StatusCodes.BAD_REQUEST);
-            return;
-        }
-
-        if (count > 0) {
-            try {
-                players = await this.db.players.getPageOfPlayers(page, active);
-            } catch (e) {
-                logger.error(`Failed to get players: ${e}`);
-                error('Failed to get players', StatusCodes.INTERNAL_SERVER_ERROR);
-                return;
-            }
-            hasMore = (count > page * PAGE_SIZE);
-        }
-
-        res.json(new PaginationResponse(hasMore, count, page, players, 'players'));
+        res.json(response);
     }
 
     /* Handler for POST /player. */
@@ -177,7 +148,7 @@ class PlayerAPI extends APIRouteDefinition {
         if (player) {
             res.json(player);
         } else {
-            error(`Player ${playerID} not found`, StatusCodes.NOT_FOUND);
+            error(`Player "${playerID}" not found`, StatusCodes.NOT_FOUND);
         }
     }
 
@@ -186,8 +157,8 @@ class PlayerAPI extends APIRouteDefinition {
         const playerID = req.params.playerID;
         const player = await this.db.players.getByID(playerID);
         if (!player) {
-            logger.error(`Error updating player: Player ${playerID} not found`);
-            error(`Player ${playerID} not found`, StatusCodes.NOT_FOUND);
+            logger.error(`Error updating player: Player "${playerID}" not found`);
+            error(`Player "${playerID}" not found`, StatusCodes.NOT_FOUND);
             return;
         }
 

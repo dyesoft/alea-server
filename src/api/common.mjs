@@ -1,11 +1,25 @@
 import express from 'express';
+import log from 'log';
 import { StatusCodes } from '@dyesoft/alea-core';
+import {PAGE_SIZE} from "../database/constants.mjs";
+
+const logger = log.get('api:common');
 
 /* Error subclass containing an error message and a status code. */
 export class APIError extends Error {
     constructor(message, status) {
         super(message);
         this.status = status;
+    }
+}
+
+/* Custom express error handler function to return API errors as JSON. */
+export function apiErrorHandler(err, req, res, next) {
+    if (err instanceof APIError) {
+        res.status(err.status);
+        res.json({error: err.message, status: err.status});
+    } else {
+        next(err);
     }
 }
 
@@ -56,6 +70,45 @@ export class APIRouteDefinition {
             throw new APIError(`Invalid page "${pageParam}"`, StatusCodes.BAD_REQUEST);
         }
         return page;
+    }
+
+    /*
+     * Return a PaginationResponse formed by querying the database using the provided functions.
+     * The req parameter is the HTTP request from express.
+     * The itemKey parameter is the name of the entity in the plural, e.g., 'widgets'.
+     * The count function should return a Promise that resolves to the total number of entities in the database.
+     * The getPaginatedList function should accept the requested page number and return a Promise that resolves to the entities for the given page as an array.
+     * The args, if provided, will be passed to both count and getPaginatedList.
+     */
+    async getPaginationResponse(req, itemKey, count, getPaginatedList, args) {
+        const page = this.getPageParam(req);
+        let total = 0;
+        let hasMore = false;
+        let items = [];
+        args = args || [];
+
+        try {
+            total = await count(...args);
+        } catch (e) {
+            logger.error(`Failed to get count of ${itemKey}: ${e}`);
+            throw new APIError(`Failed to get count of ${itemKey}`, StatusCodes.INTERNAL_SERVER_ERROR);
+        }
+
+        if (page > 1 && total <= (page - 1) * PAGE_SIZE) {
+            throw new APIError(`Invalid page "${page}"`, StatusCodes.BAD_REQUEST);
+        }
+
+        if (total > 0) {
+            try {
+                items = await getPaginatedList(page, ...args);
+            } catch (e) {
+                logger.error(`Failed to get ${itemKey}: ${e}`);
+                throw new APIError(`Failed to get ${itemKey}`, StatusCodes.INTERNAL_SERVER_ERROR);
+            }
+            hasMore = (total > page * PAGE_SIZE);
+        }
+
+        return new PaginationResponse(hasMore, total, page, items, itemKey);
     }
 
     /* Add a route for requests with the HTTP DELETE method. */

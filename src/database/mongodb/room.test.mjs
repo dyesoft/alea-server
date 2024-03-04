@@ -2,7 +2,7 @@ import mongodb from 'mongodb';
 const { MongoClient } = mongodb;
 
 import { Game, Player, Room, validateRoomCode } from '@dyesoft/alea-core';
-import { afterAll, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { MONGO_CLIENT_OPTIONS } from './constants.mjs';
 import GameCollection from './game.mjs';
 import PlayerCollection from './player.mjs';
@@ -20,15 +20,24 @@ describe('RoomCollection', () => {
     let conn;
     let db;
     let collection;
+    let gameCollection;
+    let playerCollection;
 
     beforeAll(async () => {
         conn = await MongoClient.connect(global.__MONGO_URI__, MONGO_CLIENT_OPTIONS);
         db = await conn.db();
     });
 
-    beforeEach(async () => {
+    beforeEach(() => {
         collection = new RoomCollection(db);
+        gameCollection = new GameCollection(db);
+        playerCollection = new PlayerCollection(db);
+    });
+
+    afterEach(async () => {
         await collection.collection.deleteMany({});
+        await gameCollection.collection.deleteMany({});
+        await playerCollection.collection.deleteMany({});
     });
 
     afterAll(async () => {
@@ -231,8 +240,6 @@ describe('RoomCollection', () => {
         player1.playerID = OWNER_PLAYER_ID;
         const player2 = new Player('Barney', 'barney@example.com');
         player2.playerID = PLAYER_ID;
-        const playerCollection = new PlayerCollection(db);
-        await playerCollection.collection.deleteMany({});
         await playerCollection.create(player1);
         await playerCollection.create(player2);
 
@@ -245,8 +252,6 @@ describe('RoomCollection', () => {
         game1.gameID = PREV_GAME_ID;
         const game2 = new Game(room.roomID, [player1.playerID, player2.playerID]);
         game2.gameID = GAME_ID;
-        const gameCollection = new GameCollection(db);
-        await gameCollection.collection.deleteMany({});
         await gameCollection.create(game1);
         await gameCollection.create(game2);
 

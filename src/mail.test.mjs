@@ -10,6 +10,7 @@ import {
     Mailer,
     TEST_SMTP_HOST,
 } from './mail.mjs';
+import { TEST_EMAIL_MESSAGES } from './testutils.mjs';
 
 const TEST_ADMIN_EMAIL = 'admin@example.com';
 
@@ -21,33 +22,6 @@ TEST_PLAYER.playerID = TEST_USER_NAME.toLowerCase();
 const TEST_ROOM_CODE = 'TEST';
 const TEST_ROOM_LINK_REQUEST = new RoomLinkRequest(TEST_USER_NAME, TEST_USER_EMAIL);
 TEST_ROOM_LINK_REQUEST.requestID = TEST_ROOM_CODE.toLowerCase();
-
-export const TEST_EMAIL_MESSAGES = {
-    app: {
-        name: 'Test App',
-        baseURL: 'https://example.com',
-    },
-    player: {
-        emailUpdated: {
-            salutation: 'Happy gaming!',
-        },
-        registered: {
-            salutation: 'Thanks for playing with us!',
-        },
-        retrieved: {
-            salutation: 'Take care and see you soon!',
-        },
-    },
-    room: {
-        requestApproved: {
-            salutation: 'Have fun playing games with your friends!',
-        },
-    },
-    signature: {
-        admin: '\nYours,\nTest App Bot\n',
-        default: '\nBest,\nTest App Bot\n',
-    },
-};
 
 const EXPECTED_PLAYER_EMAIL_UPDATED_EMAIL_BODY = `
 Dear Fred,

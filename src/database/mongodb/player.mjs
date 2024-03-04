@@ -5,6 +5,11 @@ export default class PlayerCollection extends MongoCollection {
     /* Create a new player collection using the given database. */
     constructor(db) {
         super(db, 'players', 'playerID');
+
+        this.count = this.count.bind(this);
+        this.getPageOfPlayers = this.getPageOfPlayers.bind(this);
+        this.getByEmail = this.getByEmail.bind(this);
+        this.updateNameAndEmailByID = this.updateNameAndEmailByID.bind(this);
     }
 
     /* Return the total number of players in the collection, optionally filtered by active status. */

@@ -2,7 +2,7 @@ import { Player, Room, StatusCodes } from '@dyesoft/alea-core';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { MongoDB } from '../database/mongodb/mongodb.mjs';
 import { Mailer, TEST_SMTP_HOST } from '../mail.mjs';
-import { TEST_EMAIL_MESSAGES } from '../mail.test.mjs';
+import { TEST_EMAIL_MESSAGES } from '../testutils.mjs';
 import { APIError } from './common.mjs';
 import PlayerAPI from './player.mjs';
 import { app } from './testutils.mjs';
@@ -129,21 +129,24 @@ describe('PlayerAPI', () => {
         });
 
         test('invalid page', async () => {
-            const response = await app(api).get('/?page=-1');
+            const page = -1;
+            const response = await app(api).get(`/?page=${page}`);
             expect(response.status).toEqual(StatusCodes.BAD_REQUEST);
-            expect(response.text).toMatch('Error: Invalid page');
+            expect(response.body.error).toEqual(`Invalid page "${page}"`);
         });
 
         test('invalid active filter', async () => {
-            const response = await app(api).get('/?active=foo');
+            const active = 'foo';
+            const response = await app(api).get(`/?active=${active}`);
             expect(response.status).toEqual(StatusCodes.BAD_REQUEST);
-            expect(response.text).toMatch('Error: Invalid active filter');
+            expect(response.body.error).toEqual(`Invalid active filter "${active}"`);
         });
 
         test('page number too high', async () => {
-            const response = await app(api).get('/?page=2');
+            const page = 2;
+            const response = await app(api).get(`/?page=${page}`);
             expect(response.status).toEqual(StatusCodes.BAD_REQUEST);
-            expect(response.text).toMatch('Error: Invalid page');
+            expect(response.body.error).toEqual(`Invalid page "${page}"`);
         });
 
         test('no results', async () => {
@@ -179,14 +182,14 @@ describe('PlayerAPI', () => {
             const player = {name: '', email: PLAYER_EMAIL};
             const response = await app(api).post('/').send(player);
             expect(response.status).toEqual(StatusCodes.BAD_REQUEST);
-            expect(response.text).toMatch('Error: Invalid name');
+            expect(response.body.error).toEqual('Invalid name ""');
         });
 
         test('room does not exist', async () => {
             const player = {name: PLAYER_NAME, email: PLAYER_EMAIL, roomID: 'room'};
             const response = await app(api).post('/').send(player);
             expect(response.status).toEqual(StatusCodes.NOT_FOUND);
-            expect(response.text).toMatch('Error: Room');
+            expect(response.body.error).toEqual(`Room "${player.roomID}" not found`);
         });
 
         test('successful creation without room', async () => {
@@ -227,15 +230,16 @@ describe('PlayerAPI', () => {
 
     describe('handleRetrievePlayer', () => {
         test('invalid email', async () => {
-            const response = await app(api).post('/retrieve').send({email: 'foo'});
+            const email = 'foo';
+            const response = await app(api).post('/retrieve').send({email: email});
             expect(response.status).toEqual(StatusCodes.BAD_REQUEST);
-            expect(response.text).toMatch('Error: Invalid email');
+            expect(response.body.error).toEqual(`Invalid email "${email}"`);
         });
 
         test('player not found', async () => {
             const response = await app(api).post('/retrieve').send({email: PLAYER_EMAIL});
             expect(response.status).toEqual(StatusCodes.NOT_FOUND);
-            expect(response.text).toMatch('Error: Player with email');
+            expect(response.body.error).toEqual(`Player with email "${PLAYER_EMAIL}" not found`);
         });
 
         test('sends email to existing player', async () => {
@@ -265,7 +269,7 @@ describe('PlayerAPI', () => {
             const playerID = 'player';
             const response = await app(api).get(`/${playerID}`);
             expect(response.status).toEqual(StatusCodes.NOT_FOUND);
-            expect(response.text).toMatch(`Error: Player ${playerID} not found`);
+            expect(response.body.error).toEqual(`Player "${playerID}" not found`);
         });
     });
 
@@ -274,7 +278,7 @@ describe('PlayerAPI', () => {
             const playerID = 'player';
             const response = await app(api).patch(`/${playerID}`).send({name: PLAYER_NAME, email: PLAYER_EMAIL});
             expect(response.status).toEqual(StatusCodes.NOT_FOUND);
-            expect(response.text).toMatch('Error: Player');
+            expect(response.body.error).toEqual(`Player "${playerID}" not found`);
         });
 
         test('invalid player', async () => {
@@ -283,7 +287,7 @@ describe('PlayerAPI', () => {
 
             const response = await app(api).patch(`/${player.playerID}`).send({name: ''});
             expect(response.status).toEqual(StatusCodes.BAD_REQUEST);
-            expect(response.text).toMatch('Error: Invalid name');
+            expect(response.body.error).toEqual('Invalid name ""');
         });
 
         test('successfully updates name and email', async () => {

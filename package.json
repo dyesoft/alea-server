@@ -10,7 +10,7 @@
   "type": "module",
   "scripts": {
     "build": "babel src -d dist",
-    "test": "jest --config jest.config.mjs"
+    "test": "jest --config jest.config.mjs --runInBand"
   },
   "author": {
     "name": "William Dye",
@@ -25,7 +25,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@dyesoft/alea-core": "^0.2.5",
+    "@dyesoft/alea-core": "^0.3.0",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.19.0",
     "cors": "^2.8.5",

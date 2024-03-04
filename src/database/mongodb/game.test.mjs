@@ -1,7 +1,7 @@
 import mongodb from 'mongodb';
 const { MongoClient } = mongodb;
 
-import { afterAll, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from '@jest/globals';
 import { MONGO_CLIENT_OPTIONS } from './constants.mjs';
 import GameCollection from './game.mjs';
 

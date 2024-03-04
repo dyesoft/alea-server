@@ -959,10 +959,10 @@
   resolved "https://registry.yarnpkg.com/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz#75a2e8b51cb758a7553d6804a5932d7aace75c39"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
-"@dyesoft/alea-core@^0.2.5":
-  version "0.2.5"
-  resolved "https://registry.yarnpkg.com/@dyesoft/alea-core/-/alea-core-0.2.5.tgz#286b4fa078e33a3bb745b4ed44e4ae7a51b757fb"
-  integrity sha512-5VqFlVoohc0slG2Y5All5jyaNYHEck4ZGSaky7VyNa98v4J1mzrSaRjYbyXnjfjGmsX+VsrPD+p4T6HbFKAo9Q==
+"@dyesoft/alea-core@^0.3.0":
+  version "0.3.0"
+  resolved "https://registry.yarnpkg.com/@dyesoft/alea-core/-/alea-core-0.3.0.tgz#a1893eeba1363d7a51986a5e981aa34070bc2c5c"
+  integrity sha512-eXm5YxbOJJEbYiEjgcKRY5NmfBxfrtvBQhkJdS5+mnvxEezTdSEAckXabh68stu5jzrt9JOayGqsNt8+hCNXPg==
   dependencies:
     bcryptjs "^2.4.3"
     uuid "^3.4.0"

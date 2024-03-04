@@ -5,6 +5,7 @@ import expressWs from 'express-ws';
 import fs from 'fs';
 import http from 'http';
 import https from 'https';
+import { apiErrorHandler } from './api/common.mjs';
 import game from './api/game.mjs';
 import PlayerAPI from './api/player.mjs';
 import room from './api/room.mjs';
@@ -37,6 +38,7 @@ class Server {
         this.app.use('/api/room', room);
         this.app.use('/api/request', roomLinkRequest);
         this.app.use('/api/status', new StatusAPI(db, config.packageVersion).getRouter());
+        this.app.use(apiErrorHandler);
         this.app.ws('/api/ws', handleWebsocket);
     }
 
