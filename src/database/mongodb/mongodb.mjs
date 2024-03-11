@@ -2,11 +2,14 @@ import mongodb from 'mongodb';
 const { MongoClient } = mongodb;
 
 import log from 'log';
+import { sleep } from '../../utils.mjs';
 import { MONGO_CLIENT_OPTIONS } from './constants.mjs';
 import GameCollection from './game.mjs';
 import PlayerCollection from './player.mjs';
 import RoomCollection from './room.mjs';
 import RoomLinkRequestCollection from './roomLinkRequest.mjs';
+
+const DB_CLOSE_DELAY_MILLIS = 50;
 
 const logger = log.get('mongodb');
 
@@ -34,6 +37,16 @@ export class MongoDB {
         this.players = new PlayerCollection(this.db);
         this.rooms = new RoomCollection(this.db);
         this.roomLinkRequests = new RoomLinkRequestCollection(this.db);
+    }
+
+    /* Close the underlying connection to the database. */
+    async close(delay = false) {
+        if (delay) {
+            // Wait for a short delay before closing the connection to allow pending transactions to commit.
+            // Mostly useful for testing where the connection is closed immediately when the tests finish.
+            await sleep(DB_CLOSE_DELAY_MILLIS);
+        }
+        await this.client.close();
     }
 
     /* Attempt to find a new host player for the given room, assuming the current host is leaving the room. */

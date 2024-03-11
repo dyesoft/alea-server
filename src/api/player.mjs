@@ -1,6 +1,13 @@
 import log from 'log';
-import { EventTypes, MAX_EMAIL_LENGTH, Player, StatusCodes, validateEmail, validatePlayerName, WebsocketEvent } from '@dyesoft/alea-core';
-import { broadcast, playerNames } from '../websockets.mjs';
+import {
+    EventTypes,
+    MAX_EMAIL_LENGTH,
+    Player,
+    StatusCodes,
+    validateEmail,
+    validatePlayerName,
+    WebsocketEvent,
+} from '@dyesoft/alea-core';
 import { APIError, APIRouteDefinition, PaginationResponse } from './common.mjs';
 
 const logger = log.get('api:player');
@@ -8,8 +15,8 @@ const logger = log.get('api:player');
 /* API route definition for player-related endpoints. */
 class PlayerAPI extends APIRouteDefinition {
     /* Create a new Player API using the given database connection and mailer. */
-    constructor(db, mailer) {
-        super(db, mailer);
+    constructor(db, wss, mailer) {
+        super(db, wss, mailer);
         this.get('/', this.handleGetPlayers.bind(this));
         this.post('/', this.handleCreatePlayer.bind(this));
         this.post('/retrieve', this.handleRetrievePlayer.bind(this));
@@ -112,7 +119,7 @@ class PlayerAPI extends APIRouteDefinition {
         }
 
         res.json(player);
-        broadcast(new WebsocketEvent(EventTypes.PLAYER_JOINED, {player}));
+        this.wss.broadcast(new WebsocketEvent(EventTypes.PLAYER_JOINED, {player}));
         logger.info(`Created player ${player.playerID}.`);
 
         if (!!player.email && player.email !== '') {
@@ -182,12 +189,12 @@ class PlayerAPI extends APIRouteDefinition {
         if (newPlayer.name !== player.name || (newPlayer.email || '') !== (player.email || '')) {
             if (newPlayer.name !== player.name) {
                 logger.info(`Player ${playerID} changed name from "${player.name}" to "${newPlayer.name}".`);
-                playerNames[playerID] = newPlayer.name;
+                this.wss.playerNames[playerID] = newPlayer.name;
             }
             if ((newPlayer.email || '') !== (player.email || '')) {
                 logger.info(`${newPlayer.name} changed email from "${player.email || ''}" to "${newPlayer.email || ''}".`);
             }
-            broadcast(new WebsocketEvent(EventTypes.PLAYER_CHANGED_SETTINGS, {playerID, name: newPlayer.name, email: newPlayer.email, prevName: player.name, roomID: player.currentRoomID}));
+            this.wss.broadcast(new WebsocketEvent(EventTypes.PLAYER_CHANGED_SETTINGS, {playerID, name: newPlayer.name, email: newPlayer.email, prevName: player.name, roomID: player.currentRoomID}));
         }
         res.status(StatusCodes.NO_CONTENT).end();
 

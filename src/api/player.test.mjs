@@ -1,8 +1,7 @@
-import { Player, Room, StatusCodes } from '@dyesoft/alea-core';
+import {EventTypes, Player, Room, StatusCodes, WebsocketEvent} from '@dyesoft/alea-core';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
-import { MongoDB } from '../database/mongodb/mongodb.mjs';
-import { Mailer, TEST_SMTP_HOST } from '../mail.mjs';
-import { TEST_EMAIL_MESSAGES } from '../testutils.mjs';
+import { getTestDB, getTestMailer } from '../testutils.mjs';
+import { WebsocketServer } from '../websockets.mjs';
 import { APIError } from './common.mjs';
 import PlayerAPI from './player.mjs';
 import { app } from './testutils.mjs';
@@ -12,25 +11,20 @@ const PLAYER_EMAIL = 'test@example.com';
 
 describe('PlayerAPI', () => {
     let db;
+    let wss;
     let mailer;
     let api;
 
     beforeAll(async () => {
-        const config = {
-            admin: {},
-            db: {url: global.__MONGO_URI__},
-            smtp: {host: TEST_SMTP_HOST},
-            messages: {email: TEST_EMAIL_MESSAGES},
-        };
-        db = new MongoDB(config, 'test');
-        await db.init();
-        mailer = new Mailer(config);
-        api = new PlayerAPI(db, mailer);
+        db = await getTestDB();
+        wss = new WebsocketServer(db);
+        mailer = getTestMailer();
+        api = new PlayerAPI(db, wss, mailer);
     });
 
     beforeEach(async () => {
-        await db.players.collection.deleteMany({});
-        await db.rooms.collection.deleteMany({});
+        await db.players.truncate(true);
+        await db.rooms.truncate(true);
     });
 
     afterEach(async () => {
@@ -38,7 +32,7 @@ describe('PlayerAPI', () => {
     });
 
     afterAll(async () => {
-        await db.client.close();
+        await db.close();
     });
 
     describe('constructor', () => {
@@ -156,7 +150,7 @@ describe('PlayerAPI', () => {
         });
 
         test('successful pagination response - all players', async () => {
-            await db.players.collection.insertMany(TEST_PLAYERS);
+            await db.players.createMany(TEST_PLAYERS);
             const response = await app(api).get('/');
             expect(response.ok).toBeTruthy();
             expect(response.body.more).toBeFalsy();
@@ -166,7 +160,7 @@ describe('PlayerAPI', () => {
         });
 
         test('successful pagination response - active players only', async () => {
-            await db.players.collection.insertMany(TEST_PLAYERS);
+            await db.players.createMany(TEST_PLAYERS);
             const response = await app(api).get('/?active=true');
             expect(response.ok).toBeTruthy();
             expect(response.body.more).toBeFalsy();
@@ -193,7 +187,8 @@ describe('PlayerAPI', () => {
         });
 
         test('successful creation without room', async () => {
-            const spy = jest.spyOn(mailer, 'sendPlayerRegisteredMessage');
+            const mailerSpy = jest.spyOn(mailer, 'sendPlayerRegisteredMessage');
+            const wssSpy = jest.spyOn(wss, 'broadcast');
             const player = {name: PLAYER_NAME, email: PLAYER_EMAIL};
             const response = await app(api).post('/').send(player);
             expect(response.ok).toBeTruthy();
@@ -205,9 +200,9 @@ describe('PlayerAPI', () => {
             expect(newPlayer.playerID).toEqual(response.body.playerID);
             expect(newPlayer.name).toEqual(player.name);
             expect(newPlayer.email).toEqual(player.email);
-            expect(spy).toHaveBeenCalledWith(newPlayer);
 
-            // TODO - check websocket event was broadcast
+            expect(mailerSpy).toHaveBeenCalledWith(newPlayer);
+            expect(wssSpy).toHaveBeenCalledWith(new WebsocketEvent(EventTypes.PLAYER_JOINED, {player: newPlayer}));
         });
 
         test('successful creation with room', async () => {
@@ -216,6 +211,7 @@ describe('PlayerAPI', () => {
             await db.rooms.create(room);
             expect(room.playerIDs).toEqual([ownerPlayerID]);
 
+            const spy = jest.spyOn(wss, 'broadcast');
             const player = {name: PLAYER_NAME, roomID: room.roomID};
             const response = await app(api).post('/').send(player);
             expect(response.ok).toBeTruthy();
@@ -224,7 +220,7 @@ describe('PlayerAPI', () => {
             const newRoom = await db.rooms.getByID(room.roomID);
             expect(newRoom.playerIDs).toEqual([ownerPlayerID, response.body.playerID]);
 
-            // TODO - check websocket event was broadcast
+            expect(spy).toHaveBeenCalled();
         });
     });
 
@@ -296,15 +292,19 @@ describe('PlayerAPI', () => {
             const player = new Player(oldName, oldEmail);
             await db.players.create(player);
 
-            const spy = jest.spyOn(mailer, 'sendPlayerEmailUpdatedMessage');
+            const mailerSpy = jest.spyOn(mailer, 'sendPlayerEmailUpdatedMessage');
+            const wssSpy = jest.spyOn(wss, 'broadcast');
             const response = await app(api).patch(`/${player.playerID}`).send({name: PLAYER_NAME});
             expect(response.status).toEqual(StatusCodes.NO_CONTENT);
             const newPlayer = await db.players.getByID(player.playerID);
             expect(newPlayer.name).toEqual(PLAYER_NAME);
             expect(newPlayer.email).toBeNull();
-            expect(spy).not.toHaveBeenCalled();
 
-            // TODO - check websocket event was broadcast
+            expect(mailerSpy).not.toHaveBeenCalled();
+            expect(wssSpy).toHaveBeenCalledWith(new WebsocketEvent(
+                EventTypes.PLAYER_CHANGED_SETTINGS,
+                {playerID: player.playerID, name: newPlayer.name, email: newPlayer.email, prevName: player.name, roomID: player.currentRoomID}
+            ));
         });
 
         test('sends email updated message if email changed', async () => {
@@ -312,15 +312,16 @@ describe('PlayerAPI', () => {
             const player = new Player(PLAYER_NAME, oldEmail);
             await db.players.create(player);
 
-            const spy = jest.spyOn(mailer, 'sendPlayerEmailUpdatedMessage');
+            const mailerSpy = jest.spyOn(mailer, 'sendPlayerEmailUpdatedMessage');
+            const wssSpy = jest.spyOn(wss, 'broadcast');
             const response = await app(api).patch(`/${player.playerID}`).send({name: PLAYER_NAME, email: PLAYER_EMAIL});
             expect(response.status).toEqual(StatusCodes.NO_CONTENT);
             const newPlayer = await db.players.getByID(player.playerID);
             expect(newPlayer.name).toEqual(PLAYER_NAME);
             expect(newPlayer.email).toEqual(PLAYER_EMAIL);
-            expect(spy).toHaveBeenCalledWith(PLAYER_NAME, PLAYER_EMAIL, oldEmail);
 
-            // TODO - check websocket event was broadcast
+            expect(mailerSpy).toHaveBeenCalledWith(PLAYER_NAME, PLAYER_EMAIL, oldEmail);
+            expect(wssSpy).toHaveBeenCalled();
         });
     });
 });

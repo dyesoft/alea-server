@@ -17,7 +17,7 @@ describe('GameCollection', () => {
 
     beforeEach(async () => {
         collection = new GameCollection(db);
-        await collection.collection.deleteMany({});
+        await collection.truncate(true);
     });
 
     afterAll(async () => {

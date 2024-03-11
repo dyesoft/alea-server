@@ -9,7 +9,6 @@ import {
     validateRoomCode,
     WebsocketEvent,
 } from '@dyesoft/alea-core';
-import { broadcast, playerNames } from '../websockets.mjs';
 import { APIRouteDefinition } from './common.mjs';
 
 const logger = log.get('api:room');
@@ -17,8 +16,8 @@ const logger = log.get('api:room');
 /* API route definition for room-related endpoints. */
 class RoomAPI extends APIRouteDefinition {
     /* Create a new Room API using the given database connection and mailer. */
-    constructor(db, mailer, adminPlayerIDs) {
-        super(db, mailer);
+    constructor(db, wss, mailer, adminPlayerIDs) {
+        super(db, wss, mailer);
         this.adminPlayerIDs = new Set(adminPlayerIDs || []);
         this.get('/', this.handleGetRooms.bind(this));
         this.post('/', this.handleCreateRoom.bind(this));
@@ -130,10 +129,10 @@ class RoomAPI extends APIRouteDefinition {
         if (player.currentRoomID) {
             const newHostPlayerID = await this.db.removePlayerFromRoom(player);
             if (newHostPlayerID) {
-                logger.info(`Reassigning host for room ${player.currentRoomID} to ${playerNames[newHostPlayerID] || newHostPlayerID}.`);
+                logger.info(`Reassigning host for room ${player.currentRoomID} to ${this.wss.getPlayerName(newHostPlayerID)}.`);
             }
             const payload = {roomID: player.currentRoomID, playerID: player.playerID, newHostPlayerID: newHostPlayerID};
-            broadcast(new WebsocketEvent(EventTypes.PLAYER_LEFT_ROOM, payload), player.playerID);
+            this.wss.broadcast(new WebsocketEvent(EventTypes.PLAYER_LEFT_ROOM, payload), player.playerID);
         }
 
         res.json(room);

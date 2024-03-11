@@ -35,9 +35,10 @@ export class PaginationResponse {
 
 /* APIRouteDefinition encapsulates a router and the handlers for the router's routes. */
 export class APIRouteDefinition {
-    /* Create a new API route definition using the given database connection. */
-    constructor(db, mailer) {
+    /* Create a new API route definition using the given database connection, websocket server, and mailer. */
+    constructor(db, wss, mailer) {
         this.db = db || null;
+        this.wss = wss || null;
         this.mailer = mailer || null;
         this._router = express.Router();
     }

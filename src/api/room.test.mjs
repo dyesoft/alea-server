@@ -1,15 +1,16 @@
 import {
+    EventTypes,
     Player,
     Room,
     RoomLinkRequest,
     RoomLinkRequestResolution,
     StatusCodes,
     validateRoomCode,
+    WebsocketEvent,
 } from '@dyesoft/alea-core';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
-import { MongoDB } from '../database/mongodb/mongodb.mjs';
-import { Mailer, TEST_SMTP_HOST } from '../mail.mjs';
-import { TEST_EMAIL_MESSAGES } from '../testutils.mjs';
+import { getTestDB, getTestMailer } from '../testutils.mjs';
+import { WebsocketServer } from '../websockets.mjs';
 import RoomAPI from './room.mjs';
 import { app } from './testutils.mjs';
 
@@ -21,25 +22,20 @@ const ADMIN_PLAYER_ID = ADMIN.playerID;
 
 describe('RoomAPI', () => {
     let db;
+    let wss;
     let mailer;
     let api;
 
     beforeAll(async () => {
-        const config = {
-            admin: {},
-            db: {url: global.__MONGO_URI__},
-            smtp: {host: TEST_SMTP_HOST},
-            messages: {email: TEST_EMAIL_MESSAGES},
-        };
-        db = new MongoDB(config, 'test');
-        await db.init();
-        mailer = new Mailer(config);
-        api = new RoomAPI(db, mailer, [ADMIN_PLAYER_ID]);
+        db = await getTestDB();
+        wss = new WebsocketServer(db);
+        mailer = getTestMailer();
+        api = new RoomAPI(db, wss, mailer, [ADMIN_PLAYER_ID]);
     });
 
     beforeEach(async () => {
-        await db.players.collection.deleteMany({});
-        await db.rooms.collection.deleteMany({});
+        await db.players.truncate(true);
+        await db.rooms.truncate(true);
     });
 
     afterEach(() => {
@@ -47,7 +43,7 @@ describe('RoomAPI', () => {
     });
 
     afterAll(async () => {
-        await db.client.close();
+        await db.close();
     });
 
     describe('constructor', () => {
@@ -115,7 +111,7 @@ describe('RoomAPI', () => {
                 new Room('GAME', player.playerID),
             ];
             await db.players.create(player);
-            await db.rooms.collection.insertMany(rooms);
+            await db.rooms.createMany(rooms);
             const response = await app(api).get('/');
             expect(response.ok).toBeTruthy();
             expect(response.body.more).toBeFalsy();
@@ -267,6 +263,7 @@ describe('RoomAPI', () => {
 
             await db.players.updateByID(OWNER_PLAYER_ID, {currentRoomID: existingRoom.roomID});
 
+            const spy = jest.spyOn(wss, 'broadcast');
             const room = {ownerPlayerID: ADMIN_PLAYER_ID};
             const response = await app(api).post('/').send(room);
             expect(response.ok).toBeTruthy();
@@ -280,7 +277,12 @@ describe('RoomAPI', () => {
             existingRoom = await db.rooms.getByID(existingRoom.roomID);
             expect(existingRoom.hostPlayerID).toEqual(OWNER_PLAYER_ID);
 
-            // TODO - check websocket event was broadcast
+            expect(spy).toHaveBeenCalledWith(
+                new WebsocketEvent(
+                    EventTypes.PLAYER_LEFT_ROOM,
+                    {roomID: existingRoom.roomID, playerID: ADMIN_PLAYER_ID, newHostPlayerID: OWNER_PLAYER_ID}),
+                ADMIN_PLAYER_ID
+            );
         });
     });
 

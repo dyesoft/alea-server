@@ -32,7 +32,7 @@ export default class RoomLinkRequestCollection extends MongoCollection {
         return await this.getPaginatedList(page, null, filters);
     }
 
-    /* Return the room link request with the given email. */
+    /* Return the unresolved room link request with the given email, if there is one. */
     async getByEmail(email) {
         return await this.collection.findOne({email: email, resolution: RoomLinkRequestResolution.UNRESOLVED});
     }

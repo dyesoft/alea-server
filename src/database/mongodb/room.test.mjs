@@ -35,9 +35,9 @@ describe('RoomCollection', () => {
     });
 
     afterEach(async () => {
-        await collection.collection.deleteMany({});
-        await gameCollection.collection.deleteMany({});
-        await playerCollection.collection.deleteMany({});
+        await collection.truncate(true);
+        await gameCollection.truncate(true);
+        await playerCollection.truncate(true);
     });
 
     afterAll(async () => {

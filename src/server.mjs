@@ -6,18 +6,19 @@ import fs from 'fs';
 import http from 'http';
 import https from 'https';
 import { apiErrorHandler } from './api/common.mjs';
-import game from './api/game.mjs';
+import GameAPI from './api/game.mjs';
 import PlayerAPI from './api/player.mjs';
-import room from './api/room.mjs';
-import roomLinkRequest from './api/roomLinkRequest.mjs';
+import RoomAPI from './api/room.mjs';
+import RoomLinkRequestAPI from './api/roomLinkRequest.mjs';
 import StatusAPI from './api/status.mjs';
-import { handleWebsocket } from './websockets.mjs';
+import { WebsocketServer } from './websockets.mjs';
 
 /* Server encapsulates the route definitions and resources needed to run an instance of the API server. */
 class Server {
     /* Create a new server using the given configuration and database connection. */
     constructor(config, db, mailer) {
         this.app = express();
+        this.wss = new WebsocketServer(db, config.maxPlayersPerGame);
 
         if (config.ssl && config.ssl.certPath && config.ssl.keyPath) {
             const serverOptions = {
@@ -33,13 +34,13 @@ class Server {
 
         this.app.use(bodyParser.json());
         this.app.use(cors());
-        this.app.use('/api/game', game);
-        this.app.use('/api/player', new PlayerAPI(db, mailer).getRouter());
-        this.app.use('/api/room', room);
-        this.app.use('/api/request', roomLinkRequest);
+        this.app.use('/api/game', new GameAPI(db, wss, config.maxPlayersPerGame).getRouter());
+        this.app.use('/api/player', new PlayerAPI(db, wss, mailer).getRouter());
+        this.app.use('/api/room', new RoomAPI(db, wss, mailer, config.adminPlayerIDs).getRouter());
+        this.app.use('/api/request', new RoomLinkRequestAPI(db, mailer).getRouter());
         this.app.use('/api/status', new StatusAPI(db, config.packageVersion).getRouter());
         this.app.use(apiErrorHandler);
-        this.app.ws('/api/ws', handleWebsocket);
+        this.app.ws('/api/ws', this.wss.handleWebsocket);
     }
 
     /* TODO */

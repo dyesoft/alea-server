@@ -25,7 +25,7 @@ describe('PlayerCollection', () => {
 
     beforeEach(async () => {
         collection = new PlayerCollection(db);
-        await collection.collection.deleteMany({});
+        await collection.truncate(true);
     });
 
     afterAll(async () => {
@@ -34,13 +34,13 @@ describe('PlayerCollection', () => {
 
     describe('count', () => {
         test('no filters', async () => {
-            await collection.collection.insertMany(TEST_PLAYERS);
+            await collection.createMany(TEST_PLAYERS);
             const count = await collection.count();
             expect(count).toEqual(TEST_PLAYERS.length);
         });
 
         test('active players only', async () => {
-            await collection.collection.insertMany(TEST_PLAYERS);
+            await collection.createMany(TEST_PLAYERS);
             const count = await collection.count(true);
             expect(count).toEqual(2);
         });
@@ -48,13 +48,13 @@ describe('PlayerCollection', () => {
 
     describe('getPageOfPlayers', () => {
         test('no filters', async () => {
-            await collection.collection.insertMany(TEST_PLAYERS);
+            await collection.createMany(TEST_PLAYERS);
             const page = await collection.getPageOfPlayers(1);
             expect(page).toHaveLength(TEST_PLAYERS.length);
         });
 
         test('active players only', async () => {
-            await collection.collection.insertMany(TEST_PLAYERS);
+            await collection.createMany(TEST_PLAYERS);
             const page = await collection.getPageOfPlayers(1, true);
             expect(page).toHaveLength(2);
             page.forEach(player => expect(player.active).toBe(true));

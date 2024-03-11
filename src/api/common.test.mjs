@@ -63,10 +63,14 @@ describe('APIRouteDefinition', () => {
             expect(def._router).toBeDefined();
         });
 
-        test('with DB', () => {
+        test('with DB, websocket server, and mailer', () => {
             const mockDB = {};
-            const def = new APIRouteDefinition(mockDB);
+            const mockWSS = {};
+            const mockMailer = {};
+            const def = new APIRouteDefinition(mockDB, mockWSS, mockMailer);
             expect(def.db).toBe(mockDB);
+            expect(def.wss).toBe(mockWSS);
+            expect(def.mailer).toBe(mockMailer);
             expect(def._router).toBeDefined();
         });
     });

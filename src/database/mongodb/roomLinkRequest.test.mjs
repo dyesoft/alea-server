@@ -25,7 +25,7 @@ describe('RoomLinkRequestCollection', () => {
 
     beforeEach(async () => {
         collection = new RoomLinkRequestCollection(db);
-        await collection.collection.deleteMany({});
+        await collection.truncate(true);
     });
 
     afterAll(async () => {
@@ -34,13 +34,13 @@ describe('RoomLinkRequestCollection', () => {
 
     describe('count', () => {
         test('no filters', async () => {
-            await collection.collection.insertMany(TEST_REQUESTS);
+            await collection.createMany(TEST_REQUESTS);
             const count = await collection.count();
             expect(count).toEqual(TEST_REQUESTS.length);
         });
 
         test('approved requests only', async () => {
-            await collection.collection.insertMany(TEST_REQUESTS);
+            await collection.createMany(TEST_REQUESTS);
             const count = await collection.count(RoomLinkRequestResolution.APPROVED);
             expect(count).toEqual(2);
         });
@@ -48,14 +48,14 @@ describe('RoomLinkRequestCollection', () => {
 
     describe('getPageOfRoomLinkRequests', () => {
         test('no filters', async () => {
-            await collection.collection.insertMany(TEST_REQUESTS);
+            await collection.createMany(TEST_REQUESTS);
             const page = await collection.getPageOfRoomLinkRequests(1);
             expect(page).toHaveLength(TEST_REQUESTS.length);
         });
 
         test('approved requests only', async () => {
             const resolution = RoomLinkRequestResolution.APPROVED;
-            await collection.collection.insertMany(TEST_REQUESTS);
+            await collection.createMany(TEST_REQUESTS);
             const page = await collection.getPageOfRoomLinkRequests(1, resolution);
             expect(page).toHaveLength(2);
             page.forEach(player => expect(player.resolution).toEqual(resolution));

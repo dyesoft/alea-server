@@ -1,3 +1,8 @@
+import { MongoDB } from './database/mongodb/mongodb.mjs';
+import { Mailer, TEST_SMTP_HOST } from './mail.mjs';
+
+export const TEST_DB_NAME = 'test';
+
 export const TEST_EMAIL_MESSAGES = {
     app: {
         name: 'Test App',
@@ -24,3 +29,21 @@ export const TEST_EMAIL_MESSAGES = {
         default: '\nBest,\nTest App Bot\n',
     },
 };
+
+export async function getTestDB() {
+    const config = {
+        db: {url: global.__MONGO_URI__},
+    };
+    const db = new MongoDB(config, TEST_DB_NAME);
+    await db.init();
+    return db;
+}
+
+export function getTestMailer() {
+    const config = {
+        admin: {},
+        smtp: {host: TEST_SMTP_HOST},
+        messages: {email: TEST_EMAIL_MESSAGES},
+    };
+    return new Mailer(config);
+}

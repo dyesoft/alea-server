@@ -1,8 +1,7 @@
 import { Player, Room } from '@dyesoft/alea-core';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from '@jest/globals';
+import { getTestDB, TEST_DB_NAME } from '../../testutils.mjs';
 import { MongoDB } from './mongodb.mjs';
-
-const TEST_DB_NAME = 'test-db';
 
 const HOST_PLAYER_ID = 'host';
 const OWNER_PLAYER_ID = 'owner';
@@ -71,11 +70,7 @@ describe('MongoDB', () => {
         let db;
 
         beforeAll(async () => {
-            const config = {
-                db: {url: global.__MONGO_URI__},
-            };
-            db = new MongoDB(config, 'test');
-            await db.init();
+            db = await getTestDB();
         });
 
         beforeEach(async () => {
@@ -83,11 +78,11 @@ describe('MongoDB', () => {
         });
 
         afterEach(async () => {
-            await db.players.collection.deleteMany({});
+            await db.players.truncate(true);
         });
 
         afterAll(async () => {
-            await db.client.close();
+            await db.close();
         });
 
         test('selects owner if not all players found', async () => {
@@ -162,11 +157,7 @@ describe('MongoDB', () => {
         let db;
 
         beforeAll(async () => {
-            const config = {
-                db: {url: global.__MONGO_URI__},
-            };
-            db = new MongoDB(config, 'test');
-            await db.init();
+            db = await getTestDB();
         });
 
         beforeEach(async () => {
@@ -174,12 +165,12 @@ describe('MongoDB', () => {
         });
 
         afterEach(async () => {
-            await db.players.collection.deleteMany({});
-            await db.rooms.collection.deleteMany({});
+            await db.players.truncate(true);
+            await db.rooms.truncate(true);
         });
 
         afterAll(async () => {
-            await db.client.close();
+            await db.close();
         });
 
         test('uses current room of player if room ID not provided', async () => {

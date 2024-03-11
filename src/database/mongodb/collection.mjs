@@ -35,15 +35,28 @@ export default class MongoCollection {
         this.updateByID = this.updateByID.bind(this);
     }
 
-    /* Create a new record in the collection after ensuring that it has a unique ID. */
-    async create(entity) {
+    ensureUniqueID(entity) {
         if (!entity[this.idField]) {
             entity[this.idField] = uuid.v4();
         }
         entity._id = entity[this.idField];
+    }
+
+    /* Create a new record in the collection after ensuring that it has a unique ID. */
+    async create(entity) {
+        this.ensureUniqueID(entity);
         const result = await this.collection.insertOne(entity, DEFAULT_INSERT_OPTIONS);
         if (result.insertedCount !== 1) {
             throw new Error(`Failed to create ${this.entityName}!`);
+        }
+    }
+
+    /* Create multiple new records in the collection after ensuring that each record has a unique ID. */
+    async createMany(entities) {
+        entities.forEach(entity => this.ensureUniqueID(entity));
+        const result = await this.collection.insertMany(entities, DEFAULT_INSERT_OPTIONS);
+        if (result.insertedCount !== entities.length) {
+            throw new Error(`Failed to create ${this.entityName}s!`);
         }
     }
 
@@ -91,5 +104,15 @@ export default class MongoCollection {
     /* Update the values of a record's fields by ID. */
     async updateByID(entityID, newFields) {
         await this.updateFieldsByID(entityID, {$set: newFields});
+    }
+
+    /*
+     * Delete ALL entities from the collection. This method is primarily used for testing.
+     * USE WITH EXTREME CAUTION!
+     */
+    async truncate(confirm = false) {
+        if (confirm) {
+            await this.collection.deleteMany({});
+        }
     }
 }
