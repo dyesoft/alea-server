@@ -11,14 +11,16 @@ import RoomLinkRequestCollection from './roomLinkRequest.mjs';
 
 const DB_CLOSE_DELAY_MILLIS = 50;
 
+const DEFAULT_DB_NAME = 'alea';
+
 const logger = log.get('mongodb');
 
 /* Database client that connects to a MongoDB database. */
 export class MongoDB {
     /* Create a MongoDB using the given config and database name. */
-    constructor(config, dbName) {
-        this.url = config.db.url || `mongodb://${config.db.host}:${config.db.port}/`;
-        this.dbName = dbName;
+    constructor(config) {
+        this.url = config.db?.url || `mongodb://${config.db?.host}:${config.db?.port}/`;
+        this.dbName = config.db?.name || DEFAULT_DB_NAME;
         this.client = new MongoClient(this.url, MONGO_CLIENT_OPTIONS);
         this.session = null;
         this.db = null;
@@ -47,6 +49,11 @@ export class MongoDB {
             await sleep(DB_CLOSE_DELAY_MILLIS);
         }
         await this.client.close();
+    }
+
+    /* Execute an ad-hoc command on the underlying database (used for status checks). */
+    async command(cmd) {
+        return await this.db.command(cmd);
     }
 
     /* Attempt to find a new host player for the given room, assuming the current host is leaving the room. */

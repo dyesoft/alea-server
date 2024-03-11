@@ -1,0 +1,63 @@
+{
+  "admin": {
+    "email": "test@example.com",
+    "playerIDs": []
+  },
+  "db": {
+    "name": "alea-test",
+    "host": "127.0.0.1",
+    "port": 27017
+  },
+  "game": {
+    "maxPlayersPerGame": 5
+  },
+  "server": {
+    "port": 3456
+  },
+  "smtp": {
+    "host": "smtp.ethereal.email",
+    "port": 587,
+    "user": "test@example.com",
+    "password": "secret",
+    "fromAddress": "noreply@example.com"
+  },
+  "ssl": {
+    "certPath": "",
+    "keyPath": ""
+  },
+  "websocket": {
+    "pingIntervalMillis": 5000,
+    "reassignmentCheckDelayMillis": 30000
+  },
+  "messages": {
+    "email": {
+      "app": {
+        "name": "Test App",
+        "baseURL": "https://example.com"
+      },
+      "game": {
+        "type": "Test App games"
+      },
+      "player": {
+        "emailUpdated": {
+          "salutation": "Happy gaming!"
+        },
+        "registered": {
+          "salutation": "Thanks for playing with us!"
+        },
+        "retrieved": {
+          "salutation": "Take care and see you soon!"
+        }
+      },
+      "room": {
+        "requestApproved": {
+          "salutation": "Have fun playing games with your friends!"
+        }
+      },
+      "signature": {
+        "admin": "\nYours,\nTest App Bot\n",
+        "default": "\nBest,\nTest App Bot\n"
+      }
+    }
+  }
+}

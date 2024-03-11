@@ -19,9 +19,12 @@ describe('MongoDB', () => {
 
         test('sets expected fields', () => {
             const config = {
-                db: {url: TEST_DB_URL},
+                db: {
+                    name: TEST_DB_NAME,
+                    url: TEST_DB_URL,
+                },
             };
-            const mongodb = new MongoDB(config, TEST_DB_NAME);
+            const mongodb = new MongoDB(config);
             expect(mongodb.dbName).toEqual(TEST_DB_NAME);
             expect(mongodb.client).toBeDefined();
             expect(mongodb.session).toBeNull();
@@ -34,17 +37,24 @@ describe('MongoDB', () => {
 
         test('URL in config', () => {
             const config = {
-                db: {url: TEST_DB_URL},
+                db: {
+                    name: TEST_DB_NAME,
+                    url: TEST_DB_URL,
+                },
             };
-            const mongodb = new MongoDB(config, TEST_DB_NAME);
+            const mongodb = new MongoDB(config);
             expect(mongodb.url).toEqual(TEST_DB_URL);
         });
 
         test('host and port in config', () => {
             const config = {
-                db: {host: TEST_DB_HOST, port: TEST_DB_PORT},
+                db: {
+                    name: TEST_DB_NAME,
+                    host: TEST_DB_HOST,
+                    port: TEST_DB_PORT,
+                },
             };
-            const mongodb = new MongoDB(config, TEST_DB_NAME);
+            const mongodb = new MongoDB(config);
             expect(mongodb.url).toEqual(TEST_DB_URL);
         });
     });
@@ -52,9 +62,12 @@ describe('MongoDB', () => {
     describe('init', () => {
         test('creates session, DB, and collections', async () => {
             const config = {
-                db: {url: global.__MONGO_URI__},
+                db: {
+                    name: TEST_DB_NAME,
+                    url: global.__MONGO_URI__,
+                },
             };
-            const mongodb = new MongoDB(config, TEST_DB_NAME);
+            const mongodb = new MongoDB(config);
             await mongodb.init();
             expect(mongodb.session).not.toBeNull();
             expect(mongodb.db).not.toBeNull();
@@ -62,7 +75,22 @@ describe('MongoDB', () => {
             expect(mongodb.players).not.toBeNull();
             expect(mongodb.rooms).not.toBeNull();
             expect(mongodb.roomLinkRequests).not.toBeNull();
-            await mongodb.client.close();
+            await mongodb.close();
+        });
+    });
+
+    describe('command', () => {
+        test('runs ping command successfully', async () => {
+            const config = {
+                db: {
+                    name: TEST_DB_NAME,
+                    url: global.__MONGO_URI__,
+                },
+            };
+            const mongodb = new MongoDB(config);
+            await mongodb.init();
+            await expect(async () => await mongodb.command({ping: 1})).resolves;
+            await mongodb.close();
         });
     });
 

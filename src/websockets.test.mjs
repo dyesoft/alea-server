@@ -18,7 +18,7 @@ import { NO_ROOM_KEY, RoomLogger, WebsocketServer } from './websockets.mjs';
 const SLEEP_DELAY_MILLIS = 50;
 
 const MAX_PLAYERS_PER_GAME = 2;
-const REASSIGNMENT_DELAY_CHECK_MILLIS = 0;
+const REASSIGNMENT_CHECK_DELAY_MILLIS = 0;
 
 const GAME_ID = 'game';
 
@@ -218,8 +218,12 @@ describe('WebsocketServer', () => {
 
     beforeEach(() => {
         const config = {
-            maxPlayersPerGame: MAX_PLAYERS_PER_GAME,
-            reassignmentDelayCheckMillis: REASSIGNMENT_DELAY_CHECK_MILLIS,
+            game: {
+                maxPlayersPerGame: MAX_PLAYERS_PER_GAME,
+            },
+            websocket: {
+                reassignmentCheckDelayMillis: REASSIGNMENT_CHECK_DELAY_MILLIS,
+            },
         };
         wss = new WebsocketServer(db, config);
     });
@@ -262,13 +266,17 @@ describe('WebsocketServer', () => {
             const maxPlayers = 5;
             const reassignmentCheckMillis = 1000;
             const config = {
-                maxPlayersPerGame: maxPlayers,
-                reassignmentDelayCheckMillis: reassignmentCheckMillis,
+                game: {
+                    maxPlayersPerGame: maxPlayers,
+                },
+                websocket: {
+                    reassignmentCheckDelayMillis: reassignmentCheckMillis,
+                },
             };
             const wss = new WebsocketServer(mockDB, config);
             expect(wss.db).toBe(mockDB);
             expect(wss.maxPlayersPerGame).toEqual(maxPlayers);
-            expect(wss.reassignmentDelayCheckMillis).toEqual(reassignmentCheckMillis);
+            expect(wss.reassignmentCheckDelayMillis).toEqual(reassignmentCheckMillis);
             expect(wss.roomLogger).toBeDefined();
             expect(wss.connectedClients).toEqual({});
             expect(wss.pingHandlers).toEqual({});

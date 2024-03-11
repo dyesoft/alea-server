@@ -14,10 +14,10 @@ import {
 
 export const NO_ROOM_KEY = 'NO_ROOM';
 
-const PING_INTERVAL_MILLIS = 30 * MILLISECONDS_PER_SECOND;
+const DEFAULT_PING_INTERVAL_MILLIS = 30 * MILLISECONDS_PER_SECOND;
 const PING_MESSAGE = 'alea-ping';
 
-const REASSIGNMENT_CHECK_DELAY_MILLIS = 5 * MILLISECONDS_PER_SECOND;
+const DEFAULT_REASSIGNMENT_CHECK_DELAY_MILLIS = 5 * MILLISECONDS_PER_SECOND;
 
 const FAILED_TO_GET_PLAYERS_MESSAGE = 'failed to get players';
 const GAME_NOT_ACTIVE_IN_ROOM_MESSAGE = 'game not active in room';
@@ -86,9 +86,9 @@ export class WebsocketServer {
     /* Create a WebsocketServer using the given database connection. */
     constructor(db, config = null) {
         this.db = db;
-        this.maxPlayersPerGame = config?.maxPlayersPerGame || null;
-        this.pingIntervalMillis = config?.pingIntervalMillis ?? PING_INTERVAL_MILLIS;
-        this.reassignmentDelayCheckMillis = config?.reassignmentDelayCheckMillis ?? REASSIGNMENT_CHECK_DELAY_MILLIS;
+        this.maxPlayersPerGame = config?.game?.maxPlayersPerGame || null;
+        this.pingIntervalMillis = config?.websocket?.pingIntervalMillis ?? DEFAULT_PING_INTERVAL_MILLIS;
+        this.reassignmentCheckDelayMillis = config?.websocket?.reassignmentCheckDelayMillis ?? DEFAULT_REASSIGNMENT_CHECK_DELAY_MILLIS;
         this.roomLogger = new RoomLogger(db);
         this.connectedClients = {};
         this.pingHandlers = {};
@@ -763,7 +763,7 @@ export class WebsocketServer {
                     }
                 }
             }
-        }, this.reassignmentDelayCheckMillis);
+        }, this.reassignmentCheckDelayMillis);
     }
 
     /* Validate and process a request for the given player to join the given room. */

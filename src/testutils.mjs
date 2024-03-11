@@ -35,9 +35,12 @@ export const TEST_EMAIL_MESSAGES = {
 
 export async function getTestDB() {
     const config = {
-        db: {url: global.__MONGO_URI__},
+        db: {
+            name: TEST_DB_NAME,
+            url: global.__MONGO_URI__,
+        },
     };
-    const db = new MongoDB(config, TEST_DB_NAME);
+    const db = new MongoDB(config);
     await db.init();
     return db;
 }
