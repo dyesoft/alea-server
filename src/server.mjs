@@ -18,7 +18,7 @@ class Server {
     /* Create a new server using the given configuration and database connection. */
     constructor(config, db, mailer) {
         this.app = express();
-        this.wss = new WebsocketServer(db, config.maxPlayersPerGame);
+        this.wss = new WebsocketServer(db, config);
 
         if (config.ssl && config.ssl.certPath && config.ssl.keyPath) {
             const serverOptions = {
@@ -34,21 +34,21 @@ class Server {
 
         this.app.use(bodyParser.json());
         this.app.use(cors());
-        this.app.use('/api/game', new GameAPI(db, wss, config.maxPlayersPerGame).getRouter());
-        this.app.use('/api/player', new PlayerAPI(db, wss, mailer).getRouter());
-        this.app.use('/api/room', new RoomAPI(db, wss, mailer, config.adminPlayerIDs).getRouter());
+        this.app.use('/api/game', new GameAPI(db, this.wss, config.maxPlayersPerGame).getRouter());
+        this.app.use('/api/player', new PlayerAPI(db, this.wss, mailer).getRouter());
+        this.app.use('/api/room', new RoomAPI(db, this.wss, mailer, config.adminPlayerIDs).getRouter());
         this.app.use('/api/request', new RoomLinkRequestAPI(db, mailer).getRouter());
         this.app.use('/api/status', new StatusAPI(db, config.packageVersion).getRouter());
         this.app.use(apiErrorHandler);
         this.app.ws('/api/ws', this.wss.handleWebsocket);
     }
 
-    /* TODO */
+    /* Add the given router's endpoints to the server at the given path prefix. */
     use(path, router) {
         this.app.use(path, router);
     }
 
-    /* TODO */
+    /* Run the server on the specified port. */
     run(port) {
         this.server.listen(port);
     }

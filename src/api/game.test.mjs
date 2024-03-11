@@ -1,4 +1,4 @@
-import {EventTypes, Game, Player, Room, StatusCodes, WebsocketEvent} from '@dyesoft/alea-core';
+import { EventTypes, Game, Player, PlayerStatsKeys, Room, StatusCodes, WebsocketEvent } from '@dyesoft/alea-core';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { getTestDB } from '../testutils.mjs';
 import { WebsocketServer } from '../websockets.mjs';
@@ -146,6 +146,11 @@ describe('GameAPI', () => {
             expect(newGame.gameID).toEqual(response.body.gameID);
             expect(newGame.roomID).toEqual(game.roomID);
             expect(newGame.createdTime.toISOString()).toEqual(response.body.createdTime);
+
+            for (const player of players) {
+                const newPlayer = await db.players.getByID(player.playerID);
+                expect(newPlayer.stats[PlayerStatsKeys.GAMES_PLAYED]).toEqual(1);
+            }
 
             expect(spy).toHaveBeenCalledTimes(2);
         });

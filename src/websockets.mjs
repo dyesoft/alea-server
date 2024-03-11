@@ -1,14 +1,23 @@
 import bcrypt from 'bcryptjs';
 import log from 'log';
 import WebSocket from 'ws';
-import { EventTypes, MAX_KICK_DURATION_SECONDS, StatusCodes, WebsocketEvent } from '@dyesoft/alea-core';
+import {
+    EventTypes,
+    MAX_KICK_DURATION_SECONDS,
+    MILLISECONDS_PER_SECOND,
+    PlayerStatsKeys,
+    randomIndex,
+    rotate,
+    StatusCodes,
+    WebsocketEvent,
+} from '@dyesoft/alea-core';
 
 export const NO_ROOM_KEY = 'NO_ROOM';
 
-const PING_INTERVAL_MILLIS = 30_000;
+const PING_INTERVAL_MILLIS = 30 * MILLISECONDS_PER_SECOND;
 const PING_MESSAGE = 'alea-ping';
 
-const REASSIGNMENT_CHECK_DELAY_MILLIS = 5_000;
+const REASSIGNMENT_CHECK_DELAY_MILLIS = 5 * MILLISECONDS_PER_SECOND;
 
 const logger = log.get('ws');
 
@@ -54,10 +63,11 @@ export class RoomLogger {
 /* Server for managing websocket connections and handling websocket events. */
 export class WebsocketServer {
     /* Create a WebsocketServer using the given database connection. */
-    constructor(db, maxPlayersPerGame = null, reassignmentDelayCheckMillis = REASSIGNMENT_CHECK_DELAY_MILLIS) {
+    constructor(db, config = null) {
         this.db = db;
-        this.maxPlayersPerGame = maxPlayersPerGame || null;
-        this.reassignmentDelayCheckMillis = reassignmentDelayCheckMillis;
+        this.maxPlayersPerGame = config?.maxPlayersPerGame || null;
+        this.pingIntervalMillis = config?.pingIntervalMillis ?? PING_INTERVAL_MILLIS;
+        this.reassignmentDelayCheckMillis = config?.reassignmentDelayCheckMillis ?? REASSIGNMENT_CHECK_DELAY_MILLIS;
         this.roomLogger = new RoomLogger(db);
         this.connectedClients = {};
         this.pingHandlers = {};
@@ -140,9 +150,9 @@ export class WebsocketServer {
         this.roomLogger.debug(roomID, `Broadcasting ${event.eventType} event...`);
 
         let jsonEvent;
-        const clients = this.getClients(roomID);
-        // TODO - randomize order clients receive events (to ensure fairness)
-        Object.entries(clients).forEach(([playerID, ws]) => {
+        const clients = Object.entries(this.getClients(roomID));
+        // Rotate array to randomize order in which clients receive events (to ensure fairness).
+        rotate(clients, randomIndex(clients)).forEach(([playerID, ws]) => {
             if (!originatingPlayerID || playerID !== originatingPlayerID) {
                 if (!jsonEvent) {
                     jsonEvent = JSON.stringify(event);
@@ -341,7 +351,7 @@ export class WebsocketServer {
             } catch (e) {
                 logger.error(`Unexpected error while pinging websocket: ${e}`);
             }
-        }, PING_INTERVAL_MILLIS);
+        }, this.pingIntervalMillis);
 
         if (room) {
             let players;
@@ -559,7 +569,9 @@ export class WebsocketServer {
         this.roomLogger.info(roomID, `${player.name} joined game ${gameID}.`);
         this.addClient(roomID, playerID, ws);
         this.broadcast(new WebsocketEvent(EventTypes.PLAYER_JOINED, {roomID: roomID, player: {...player, score: game.scores[playerID] || 0}}));
-        // TODO - increment games played stat?
+        if (!game.playerIDs.includes(playerID)) {
+            await this.db.players.incrementStat(playerID, PlayerStatsKeys.GAMES_PLAYED);
+        }
     }
 
     /* Handler for START_SPECTATING events. */

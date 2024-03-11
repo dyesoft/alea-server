@@ -1,5 +1,5 @@
 import log from 'log';
-import { EventTypes, Game, StatusCodes, WebsocketEvent } from '@dyesoft/alea-core';
+import {EventTypes, Game, PlayerStatsKeys, StatusCodes, WebsocketEvent} from '@dyesoft/alea-core';
 import { APIRouteDefinition } from './common.mjs';
 
 const logger = log.get('api:game');
@@ -86,7 +86,7 @@ class GameAPI extends APIRouteDefinition {
 
         try {
             await this.db.rooms.setCurrentGameForRoom(room, game.gameID);
-            // TODO - increment games played stat?
+            await Promise.all(game.playerIDs.map(playerID => this.db.players.incrementStat(playerID, PlayerStatsKeys.GAMES_PLAYED)));
         } catch (e) {
             logger.error(`Failed to handle processing of new game ${game.gameID} for room ${roomID}: ${e}`);
         }

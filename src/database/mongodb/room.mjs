@@ -7,11 +7,40 @@ import {
     ROOM_CODE_LENGTH,
 } from '@dyesoft/alea-core';
 
+const ROOM_HISTORY_GAME_PROJECTION = {
+    _id: 0,
+    roomID: 0,
+    rounds: 0,
+};
+
+const ROOM_HISTORY_PLAYER_PROJECTION = {
+    _id: 0,
+    active: 0,
+    currentRoomID: 0,
+    email: 0,
+    spectating: 0,
+    stats: 0,
+};
+
+const ROOM_HISTORY_ROOM_PROJECTION = {
+    _id: 0,
+    kickedPlayerIDs: 0,
+    passwordHash: 0,
+    playerIDs: 0,
+    players: ROOM_HISTORY_PLAYER_PROJECTION,
+    previousGameIDs: 0,
+    previousGames: ROOM_HISTORY_GAME_PROJECTION,
+};
+
 /* Data access class for working with rooms. */
 export default class RoomCollection extends MongoCollection {
     /* Create a new room collection using the given database. */
     constructor(db) {
         super(db, 'rooms', 'roomID');
+
+        this.projections = {
+            roomHistory: ROOM_HISTORY_ROOM_PROJECTION,
+        };
 
         this.create = this.create.bind(this);
         this.generateUniqueRoomCode = this.generateUniqueRoomCode.bind(this);
@@ -118,36 +147,7 @@ export default class RoomCollection extends MongoCollection {
                 foreignField: 'playerID',
                 as: 'players',
             }},
-            {$project: {  // TODO - projection includes some non-modeled fields
-                _id: 0,
-                kickedPlayerIDs: 0,
-                passwordHash: 0,
-                playerIDs: 0,
-                players: {
-                    _id: 0,
-                    active: 0,
-                    currentRoomID: 0,
-                    email: 0,
-                    preferredFontStyle: 0,
-                    spectating: 0,
-                    stats: 0,
-                },
-                previousGameIDs: 0,
-                previousGames: {
-                    _id: 0,
-                    activeClue: 0,
-                    currentWager: 0,
-                    episodeMetadata: {
-                        contestants: 0,
-                        scores: 0,
-                    },
-                    playerAnswering: 0,
-                    playerInControl: 0,
-                    playersReadyForNextRound: 0,
-                    roomID: 0,
-                    rounds: 0,
-                },
-            }},
+            {$project: this.projections.roomHistory},
         ]);
         const results = await cursor.toArray();
         if (!results.length) {

@@ -8,6 +8,7 @@ export const ADMIN_EMAIL_SIGNATURE_PLACEHOLDER = '{{ADMIN_EMAIL_SIGNATURE}}';
 export const APP_BASE_URL_PLACEHOLDER = '{{APP_BASE_URL}}';
 export const APP_NAME_PLACEHOLDER = '{{APP_NAME}}';
 export const DEFAULT_EMAIL_SIGNATURE_PLACEHOLDER = '{{DEFAULT_EMAIL_SIGNATURE}}';
+export const GAME_TYPE_PLACEHOLDER = '{{GAME_TYPE}}';
 export const PLAYER_EMAIL_UPDATED_SALUTATION_PLACEHOLDER = '{{PLAYER_EMAIL_UPDATED_SALUTATION}}';
 export const PLAYER_REGISTRATION_SALUTATION_PLACEHOLDER = '{{PLAYER_REGISTRATION_SALUTATION}}';
 export const PLAYER_RETRIEVAL_SALUTATION_PLACEHOLDER = '{{PLAYER_RETRIEVAL_SALUTATION}}';
@@ -34,6 +35,7 @@ export class EmailTemplates {
                 replaceAll(APP_BASE_URL_PLACEHOLDER, mailer.messages.app.baseURL).
                 replaceAll(APP_NAME_PLACEHOLDER, mailer.messages.app.name).
                 replaceAll(DEFAULT_EMAIL_SIGNATURE_PLACEHOLDER, mailer.messages.signature.default).
+                replaceAll(GAME_TYPE_PLACEHOLDER, mailer.messages.game.type || 'games').
                 replaceAll(PLAYER_EMAIL_UPDATED_SALUTATION_PLACEHOLDER, mailer.messages.player.emailUpdated.salutation).
                 replaceAll(PLAYER_REGISTRATION_SALUTATION_PLACEHOLDER, mailer.messages.player.registered.salutation).
                 replaceAll(PLAYER_RETRIEVAL_SALUTATION_PLACEHOLDER, mailer.messages.player.retrieved.salutation).
@@ -93,7 +95,7 @@ const ROOM_CREATED_TEMPLATE = new EmailTemplates(
         `\n` +
         `Your room ${ROOM_PLACEHOLDER} is now ready to go!\n` +
         `\n` +
-        `When you're ready, visit ${APP_BASE_URL_PLACEHOLDER}/p/${ROOM_PLACEHOLDER} to play unlimited games of trivia with your friends!\n` +  // TODO - remove reference to trivia
+        `When you're ready, visit ${APP_BASE_URL_PLACEHOLDER}/p/${ROOM_PLACEHOLDER} to play unlimited ${GAME_TYPE_PLACEHOLDER} with your friends!\n` +
         `\n` +
         `This link will always be yours, so feel free to bookmark it, or send it to others so they can play with you.\n` +
         `${DEFAULT_EMAIL_SIGNATURE_PLACEHOLDER}`
@@ -127,34 +129,6 @@ const ROOM_REQUEST_CREATED_TEMPLATE = new EmailTemplates(
 );
 
 const logger = log.get('mail');
-
-// TODO - remove
-const messages = {
-    app: {
-        name: 'Jeopardye',
-        baseURL: 'https://jeopardye.com',
-    },
-    player: {
-        emailUpdated: {
-            salutation: 'May all your potables be potent!',
-        },
-        registered: {
-            salutation: 'May all the daily doubles be in your favor!',
-        },
-        retrieved: {
-            salutation: 'As always, remember to wager wisely!',
-        },
-    },
-    room: {
-        requestApproved: {
-            salutation: 'Have fun playing trivia with your friends!',
-        },
-    },
-    signature: {
-        admin: '\nYours,\nJeopardye Bot\n',
-        default: '\nBest,\nJeopardye Bot\n',
-    },
-}
 
 export class Mailer {
     constructor(config) {

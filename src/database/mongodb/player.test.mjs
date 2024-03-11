@@ -1,7 +1,7 @@
 import mongodb from 'mongodb';
 const { MongoClient } = mongodb;
 
-import { Player } from '@dyesoft/alea-core';
+import { Player, PlayerStatsKeys } from '@dyesoft/alea-core';
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from '@jest/globals';
 import { MONGO_CLIENT_OPTIONS } from './constants.mjs';
 import PlayerCollection from './player.mjs';
@@ -85,6 +85,41 @@ describe('PlayerCollection', () => {
                 name: name,
                 email: email,
             });
+        });
+    });
+
+    describe('incrementStat', () => {
+        const stat = PlayerStatsKeys.GAMES_PLAYED;
+
+        test('increments stat by specified amount', async () => {
+            const value = 5;
+            const player = new Player('Fred');
+            player.stats[stat] = value;
+            await collection.create(player);
+            await collection.incrementStat(player.playerID, stat, value);
+            const newPlayer = await collection.getByID(player.playerID);
+            expect(newPlayer.stats[stat]).toEqual(value * 2);
+        });
+
+        test('increments stat by one if no amount provided', async () => {
+            const player = new Player('Fred');
+            await collection.create(player);
+            await collection.incrementStat(player.playerID, stat);
+            const newPlayer = await collection.getByID(player.playerID);
+            expect(newPlayer.stats[stat]).toEqual(1);
+        });
+    });
+
+    describe('setStat', () => {
+        const stat = PlayerStatsKeys.HIGHEST_GAME_SCORE;
+
+        test('sets stat to specified value', async () => {
+            const value = 10_000;
+            const player = new Player('Fred');
+            await collection.create(player);
+            await collection.setStat(player.playerID, stat, value);
+            const newPlayer = await collection.getByID(player.playerID);
+            expect(newPlayer.stats[stat]).toEqual(value);
         });
     });
 });

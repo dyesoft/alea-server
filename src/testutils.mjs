@@ -8,6 +8,9 @@ export const TEST_EMAIL_MESSAGES = {
         name: 'Test App',
         baseURL: 'https://example.com',
     },
+    game: {
+        type: 'test games',
+    },
     player: {
         emailUpdated: {
             salutation: 'Happy gaming!',

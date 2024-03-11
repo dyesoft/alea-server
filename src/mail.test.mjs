@@ -69,7 +69,7 @@ Dear Fred,
 
 Your room TEST is now ready to go!
 
-When you're ready, visit https://example.com/p/TEST to play unlimited games of trivia with your friends!
+When you're ready, visit https://example.com/p/TEST to play unlimited test games with your friends!
 
 This link will always be yours, so feel free to bookmark it, or send it to others so they can play with you.
 

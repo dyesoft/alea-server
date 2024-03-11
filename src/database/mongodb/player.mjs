@@ -39,4 +39,16 @@ export default class PlayerCollection extends MongoCollection {
     async updateNameAndEmailByID(playerID, name, email) {
         await this.updateByID(playerID, {name: name, email: email});
     }
+
+    /* Increment the given statistic for the given player by the given amount (or 1). */
+    async incrementStat(playerID, statName, value = 1) {
+        const key = `stats.${statName}`;
+        await this.updateFieldsByID(playerID, {$inc: {[key]: value}});
+    }
+
+    /* Set the given statistic for the given player to the given value. */
+    async setStat(playerID, statName, value) {
+        const key = `stats.${statName}`;
+        await this.updateByID(playerID, {[key]: value});
+    }
 }

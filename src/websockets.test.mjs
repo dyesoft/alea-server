@@ -1,11 +1,19 @@
 import WebSocket from 'ws';
-import { EventContext, EventTypes, Game, Player, Room, StatusCodes, WebsocketEvent } from '@dyesoft/alea-core';
+import {
+    EventContext,
+    EventTypes,
+    Game,
+    MILLISECONDS_PER_DAY,
+    Player,
+    PlayerStatsKeys,
+    Room,
+    StatusCodes,
+    WebsocketEvent,
+} from '@dyesoft/alea-core';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { getTestDB } from './testutils.mjs';
 import { sleep } from './utils.mjs';
 import { NO_ROOM_KEY, RoomLogger, WebsocketServer } from './websockets.mjs';
-
-const ONE_DAY_IN_MILLIS = 24 * 60 * 60 * 1000;
 
 const SLEEP_DELAY_MILLIS = 50;
 
@@ -185,11 +193,11 @@ async function expectRoomNotFoundEvent(wss, eventType, payload, message) {
 }
 
 function tomorrow() {
-    return Date.now() + ONE_DAY_IN_MILLIS;
+    return Date.now() + MILLISECONDS_PER_DAY;
 }
 
 function yesterday() {
-    return Date.now() - ONE_DAY_IN_MILLIS;
+    return Date.now() - MILLISECONDS_PER_DAY;
 }
 
 describe('WebsocketServer', () => {
@@ -201,7 +209,11 @@ describe('WebsocketServer', () => {
     });
 
     beforeEach(() => {
-        wss = new WebsocketServer(db, MAX_PLAYERS_PER_GAME, REASSIGNMENT_DELAY_CHECK_MILLIS);
+        const config = {
+            maxPlayersPerGame: MAX_PLAYERS_PER_GAME,
+            reassignmentDelayCheckMillis: REASSIGNMENT_DELAY_CHECK_MILLIS,
+        };
+        wss = new WebsocketServer(db, config);
     });
 
     afterEach(async () => {
@@ -237,12 +249,18 @@ describe('WebsocketServer', () => {
             EventTypes.KICK_PLAYER,
         ];
 
-        test('with db and max players per game', () => {
+        test('with db and config', () => {
             const mockDB = {};
             const maxPlayers = 5;
-            const wss = new WebsocketServer(mockDB, maxPlayers);
+            const reassignmentCheckMillis = 1000;
+            const config = {
+                maxPlayersPerGame: maxPlayers,
+                reassignmentDelayCheckMillis: reassignmentCheckMillis,
+            };
+            const wss = new WebsocketServer(mockDB, config);
             expect(wss.db).toBe(mockDB);
             expect(wss.maxPlayersPerGame).toEqual(maxPlayers);
+            expect(wss.reassignmentDelayCheckMillis).toEqual(reassignmentCheckMillis);
             expect(wss.roomLogger).toBeDefined();
             expect(wss.connectedClients).toEqual({});
             expect(wss.pingHandlers).toEqual({});
@@ -1102,6 +1120,9 @@ describe('WebsocketServer', () => {
             const newGame = await db.games.getByID(game.gameID);
             expect(newGame.playerIDs).toEqual([player.playerID]);
             expect(newGame.scores[player.playerID]).toEqual(0);
+
+            const newPlayer = await db.players.getByID(player.playerID);
+            expect(newPlayer.stats[PlayerStatsKeys.GAMES_PLAYED]).toEqual(1);
 
             expect(spy).toHaveBeenCalledWith(new WebsocketEvent(
                 EventTypes.PLAYER_JOINED,
