@@ -136,6 +136,14 @@ function expectWebsocketErrorEvent(ws, event, message, status) {
     expectWebsocketEvent(ws, expectedErrorEvent);
 }
 
+async function expectMissingGameIDEvent(wss, eventType, payload) {
+    const event = new WebsocketEvent(eventType, payload);
+    const mockWS = getMockWebsocket();
+    const handler = wss.eventHandlers[eventType];
+    await handler(mockWS, event);
+    expectWebsocketErrorEvent(mockWS, event, 'missing game ID', StatusCodes.BAD_REQUEST);
+}
+
 async function expectGameNotFoundEvent(wss, eventType, payload) {
     const event = new WebsocketEvent(eventType, payload);
     const mockWS = getMockWebsocket();
@@ -144,12 +152,12 @@ async function expectGameNotFoundEvent(wss, eventType, payload) {
     expectWebsocketErrorEvent(mockWS, event, 'game not found', StatusCodes.NOT_FOUND);
 }
 
-async function expectMissingPlayerIDEvent(wss, eventType, payload, message) {
+async function expectMissingPlayerIDEvent(wss, eventType, payload) {
     const event = new WebsocketEvent(eventType, payload);
     const mockWS = getMockWebsocket();
     const handler = wss.eventHandlers[eventType];
     await handler(mockWS, event);
-    expectWebsocketErrorEvent(mockWS, event, message || 'missing player ID', StatusCodes.BAD_REQUEST);
+    expectWebsocketErrorEvent(mockWS, event, 'missing player ID', StatusCodes.BAD_REQUEST);
 }
 
 async function expectPlayerNotFoundEvent(wss, eventType, payload) {
@@ -184,12 +192,12 @@ async function expectMissingRoomIDEvent(wss, eventType, payload, message) {
     expectWebsocketErrorEvent(mockWS, event, message || 'missing room ID', StatusCodes.BAD_REQUEST);
 }
 
-async function expectRoomNotFoundEvent(wss, eventType, payload, message) {
+async function expectRoomNotFoundEvent(wss, eventType, payload) {
     const event = new WebsocketEvent(eventType, payload);
     const mockWS = getMockWebsocket();
     const handler = wss.eventHandlers[eventType];
     await handler(mockWS, event);
-    expectWebsocketErrorEvent(mockWS, event, message || 'room not found', StatusCodes.NOT_FOUND);
+    expectWebsocketErrorEvent(mockWS, event, 'room not found', StatusCodes.NOT_FOUND);
 }
 
 function tomorrow() {
@@ -546,101 +554,336 @@ describe('WebsocketServer', () => {
         });
     });
 
-    describe('validateEventContext', () => {
+    describe('validateGameByID', () => {
+        const eventType = EventTypes.JOIN_GAME;
+        const event = new WebsocketEvent(eventType);
+
+        test.each([
+            [undefined],
+            [null],
+            [''],
+        ])('sends error response for missing game ID (%p)', async (gameID) => {
+            const mockWS = getMockWebsocket();
+            const game = await wss.validateGameByID(mockWS, event, gameID);
+            expect(game).toBeNull();
+            expectWebsocketErrorEvent(mockWS, event, 'missing game ID', StatusCodes.BAD_REQUEST);
+        });
+
+        test('sends error response if game not found', async () => {
+            const mockWS = getMockWebsocket();
+            const game = await wss.validateGameByID(mockWS, event, GAME_ID);
+            expect(game).toBeNull();
+            expectWebsocketErrorEvent(mockWS, event, 'game not found', StatusCodes.NOT_FOUND);
+        });
+
+        test('returns game if found', async () => {
+            const game = new Game(ROOM_ID);
+            await db.games.create(game);
+
+            const mockWS = getMockWebsocket();
+            const returnedGame = await wss.validateGameByID(mockWS, event, game.gameID);
+            expect(returnedGame).toEqual(game);
+            expect(mockWS.send).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('validatePlayerByID', () => {
+        const eventType = EventTypes.JOIN_ROOM;
+        const event = new WebsocketEvent(eventType);
+
+        test.each([
+            [undefined],
+            [null],
+            [''],
+        ])('sends error response for missing player ID (%p)', async (playerID) => {
+            const mockWS = getMockWebsocket();
+            const player = await wss.validatePlayerByID(mockWS, event, playerID);
+            expect(player).toBeNull();
+            expectWebsocketErrorEvent(mockWS, event, 'missing player ID', StatusCodes.BAD_REQUEST);
+        });
+
+        test('sends error response if player not found', async () => {
+            const mockWS = getMockWebsocket();
+            const player = await wss.validatePlayerByID(mockWS, event, PLAYER_ID);
+            expect(player).toBeNull();
+            expectWebsocketErrorEvent(mockWS, event, 'player not found', StatusCodes.NOT_FOUND);
+        });
+
+        test('returns player if found', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+
+            const mockWS = getMockWebsocket();
+            const returnedPlayer = await wss.validatePlayerByID(mockWS, event, player.playerID);
+            expect(returnedPlayer).toEqual(player);
+            expect(mockWS.send).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('validateRoomByCode', () => {
+        const eventType = EventTypes.JOIN_ROOM_WITH_CODE;
+        const event = new WebsocketEvent(eventType);
+
+        test.each([
+            [undefined],
+            [null],
+            [''],
+        ])('sends error response for missing room code (%p)', async (roomCode) => {
+            const mockWS = getMockWebsocket();
+            const room = await wss.validateRoomByCode(mockWS, event, roomCode);
+            expect(room).toBeNull();
+            expectWebsocketErrorEvent(mockWS, event, 'missing room code', StatusCodes.BAD_REQUEST);
+        });
+
+        test('sends error response if room not found', async () => {
+            const mockWS = getMockWebsocket();
+            const room = await wss.validateRoomByCode(mockWS, event, ROOM_CODE);
+            expect(room).toBeNull();
+            expectWebsocketErrorEvent(mockWS, event, 'room not found', StatusCodes.NOT_FOUND);
+        });
+
+        test('returns room if found', async () => {
+            const room = new Room(ROOM_CODE, PLAYER_ID);
+            await db.rooms.create(room);
+
+            const mockWS = getMockWebsocket();
+            const returnedRoom = await wss.validateRoomByCode(mockWS, event, room.roomCode);
+            expect(returnedRoom).toEqual(room);
+            expect(mockWS.send).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('validateRoomByID', () => {
+        const eventType = EventTypes.JOIN_ROOM_WITH_CODE;
+        const event = new WebsocketEvent(eventType);
+
+        test.each([
+            [undefined],
+            [null],
+            [''],
+        ])('sends error response for missing room ID (%p)', async (roomID) => {
+            const mockWS = getMockWebsocket();
+            const room = await wss.validateRoomByID(mockWS, event, roomID);
+            expect(room).toBeNull();
+            expectWebsocketErrorEvent(mockWS, event, 'missing room ID', StatusCodes.BAD_REQUEST);
+        });
+
+        test('sends error response if room not found', async () => {
+            const mockWS = getMockWebsocket();
+            const room = await wss.validateRoomByID(mockWS, event, ROOM_ID);
+            expect(room).toBeNull();
+            expectWebsocketErrorEvent(mockWS, event, 'room not found', StatusCodes.NOT_FOUND);
+        });
+
+        test('returns room if found', async () => {
+            const room = new Room(ROOM_CODE, PLAYER_ID);
+            await db.rooms.create(room);
+
+            const mockWS = getMockWebsocket();
+            const returnedRoom = await wss.validateRoomByID(mockWS, event, room.roomID);
+            expect(returnedRoom).toEqual(room);
+            expect(mockWS.send).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('validatePlayerAndRoomByID', () => {
+        const eventType = EventTypes.LEAVE_ROOM;
+        const event = new WebsocketEvent(eventType);
+
+        function expectErrorResult(result) {
+            expect(result).not.toBeNull();
+            expect(result.player).toBeNull();
+            expect(result.room).toBeNull();
+        }
+
+        test('sends error response for missing player ID', async () => {
+            const mockWS = getMockWebsocket();
+            const result = await wss.validatePlayerAndRoomByID(mockWS, event, null, ROOM_ID);
+            expectErrorResult(result);
+            expectWebsocketErrorEvent(mockWS, event, 'missing player ID', StatusCodes.BAD_REQUEST);
+        });
+
+        test('sends error response if player not found', async () => {
+            const mockWS = getMockWebsocket();
+            const result = await wss.validatePlayerAndRoomByID(mockWS, event, PLAYER_ID, ROOM_ID);
+            expectErrorResult(result);
+            expectWebsocketErrorEvent(mockWS, event, 'player not found', StatusCodes.NOT_FOUND);
+        });
+
+        test('sends error response for missing room ID', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+
+            const mockWS = getMockWebsocket();
+            const result = await wss.validatePlayerAndRoomByID(mockWS, event, player.playerID, null);
+            expectErrorResult(result);
+            expectWebsocketErrorEvent(mockWS, event, 'missing room ID', StatusCodes.BAD_REQUEST);
+        });
+
+        test('sends error response if room not found', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+
+            const mockWS = getMockWebsocket();
+            const result = await wss.validatePlayerAndRoomByID(mockWS, event, player.playerID, ROOM_ID);
+            expectErrorResult(result);
+            expectWebsocketErrorEvent(mockWS, event, 'room not found', StatusCodes.NOT_FOUND);
+        });
+
+        test('sends error response if checkPlayerInRoom is true and player not in room', async () => {
+            const player = new Player(PLAYER_NAME);
+            const room = new Room(ROOM_CODE, PLAYER_ID);
+            await db.players.create(player);
+            await db.rooms.create(room);
+
+            const mockWS = getMockWebsocket();
+            const result = await wss.validatePlayerAndRoomByID(mockWS, event, player.playerID, room.roomID, true);
+            expectErrorResult(result);
+            expectWebsocketErrorEvent(mockWS, event, 'player not in room', StatusCodes.BAD_REQUEST);
+        });
+
+        test('success - returns player and room if valid', async () => {
+            const player = new Player(PLAYER_NAME);
+            const room = new Room(ROOM_CODE, PLAYER_ID);
+            await db.players.create(player);
+            await db.rooms.create(room);
+
+            const mockWS = getMockWebsocket();
+            const result = await wss.validatePlayerAndRoomByID(mockWS, event, player.playerID, room.roomID);
+            expect(result).not.toBeNull();
+            expect(result.player).toEqual(player);
+            expect(result.room).toEqual(room);
+            expect(mockWS.send).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('validateRoomEventContext', () => {
+        const eventType = EventTypes.JOIN_ROOM;
+
+        test('extracts IDs from event context if present', async () => {
+            const player = new Player(PLAYER_NAME);
+            const room = new Room(ROOM_CODE, PLAYER_ID);
+            await db.players.create(player);
+            await db.rooms.create(room);
+
+            const event = new WebsocketEvent(eventType, {context: new EventContext(room.roomID, null, player.playerID)});
+            const mockWS = getMockWebsocket();
+            const result = await wss.validateRoomEventContext(mockWS, event);
+            expect(result).not.toBeNull();
+            expect(result.player).toEqual(player);
+            expect(result.room).toEqual(room);
+            expect(mockWS.send).not.toHaveBeenCalled();
+        });
+
+        test('extracts IDs from event payload if context not present', async () => {
+            const player = new Player(PLAYER_NAME);
+            const room = new Room(ROOM_CODE, PLAYER_ID);
+            await db.players.create(player);
+            await db.rooms.create(room);
+
+            const event = new WebsocketEvent(eventType, {playerID: player.playerID, roomID: room.roomID});
+            const mockWS = getMockWebsocket();
+            const result = await wss.validateRoomEventContext(mockWS, event);
+            expect(result).not.toBeNull();
+            expect(result.player).toEqual(player);
+            expect(result.room).toEqual(room);
+            expect(mockWS.send).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('validateGameEventContext', () => {
         const eventType = EventTypes.JOIN_GAME;
 
         function eventWithContext(context) {
             return new WebsocketEvent(eventType, {context: context});
         }
 
-        test('sends error response if room ID missing', async () => {
-            const event = new WebsocketEvent(eventType);
-            const mockWS = getMockWebsocket();
-            const result = await wss.validateEventContext(mockWS, event);
+        function expectErrorResult(result) {
+            expect(result).not.toBeNull();
             expect(result.game).toBeNull();
+            expect(result.player).toBeNull();
             expect(result.room).toBeNull();
-            expectWebsocketErrorEvent(mockWS, event, 'missing room ID', StatusCodes.BAD_REQUEST);
-        });
+        }
 
-        test('sends error response if game ID missing', async () => {
-            const event = eventWithContext(new EventContext(ROOM_ID));
+        test('sends error response if player not found', async () => {
+            const event = eventWithContext(new EventContext(ROOM_ID, GAME_ID, PLAYER_ID));
             const mockWS = getMockWebsocket();
-            const result = await wss.validateEventContext(mockWS, event);
-            expect(result.game).toBeNull();
-            expect(result.room).toBeNull();
-            expectWebsocketErrorEvent(mockWS, event, 'missing game ID', StatusCodes.BAD_REQUEST);
-        });
-
-        test('sends error response if player ID missing', async () => {
-            const event = eventWithContext(new EventContext(ROOM_ID, GAME_ID));
-            const mockWS = getMockWebsocket();
-            const result = await wss.validateEventContext(mockWS, event);
-            expect(result.game).toBeNull();
-            expect(result.room).toBeNull();
-            expectWebsocketErrorEvent(mockWS, event, 'missing player ID', StatusCodes.BAD_REQUEST);
+            const result = await wss.validateGameEventContext(mockWS, event);
+            expectErrorResult(result);
+            expectWebsocketErrorEvent(mockWS, event, 'player not found', StatusCodes.NOT_FOUND);
         });
 
         test('sends error response if room not found', async () => {
-            const event = eventWithContext(new EventContext(ROOM_ID, GAME_ID, PLAYER_ID));
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+
+            const event = eventWithContext(new EventContext(ROOM_ID, GAME_ID, player.playerID));
             const mockWS = getMockWebsocket();
-            const result = await wss.validateEventContext(mockWS, event);
-            expect(result.game).toBeNull();
-            expect(result.room).toBeNull();
-            expectWebsocketErrorEvent(mockWS, event, `room "${ROOM_ID}" not found`, StatusCodes.NOT_FOUND);
+            const result = await wss.validateGameEventContext(mockWS, event);
+            expectErrorResult(result);
+            expectWebsocketErrorEvent(mockWS, event, 'room not found', StatusCodes.NOT_FOUND);
         });
 
         test('sends error response if game not found', async () => {
+            const player = new Player(PLAYER_NAME);
             const room = new Room(ROOM_CODE, PLAYER_ID);
+            await db.players.create(player);
             await db.rooms.create(room);
 
-            const event = eventWithContext(new EventContext(room.roomID, GAME_ID, PLAYER_ID));
+            const event = eventWithContext(new EventContext(room.roomID, GAME_ID, player.playerID));
             const mockWS = getMockWebsocket();
-            const result = await wss.validateEventContext(mockWS, event);
-            expect(result.game).toBeNull();
-            expect(result.room).toBeNull();
-            expectWebsocketErrorEvent(mockWS, event, `game "${GAME_ID}" not found`, StatusCodes.NOT_FOUND);
+            const result = await wss.validateGameEventContext(mockWS, event);
+            expectErrorResult(result);
+            expectWebsocketErrorEvent(mockWS, event, 'game not found', StatusCodes.NOT_FOUND);
         });
 
         test('sends error response if game not active in room', async () => {
+            const player = new Player(PLAYER_NAME);
             const room = new Room(ROOM_CODE, PLAYER_ID);
             const game = new Game(room.roomID);
+            await db.players.create(player);
             await db.games.create(game);
             await db.rooms.create(room);
 
-            const event = eventWithContext(new EventContext(room.roomID, game.gameID, PLAYER_ID));
+            const event = eventWithContext(new EventContext(room.roomID, game.gameID, player.playerID));
             const mockWS = getMockWebsocket();
-            const result = await wss.validateEventContext(mockWS, event);
-            expect(result.game).toBeNull();
-            expect(result.room).toBeNull();
-            expectWebsocketErrorEvent(mockWS, event, `game ${game.gameID} is not active in room ${room.roomID}`, StatusCodes.BAD_REQUEST);
+            const result = await wss.validateGameEventContext(mockWS, event);
+            expectErrorResult(result);
+            expectWebsocketErrorEvent(mockWS, event, 'game not active in room', StatusCodes.BAD_REQUEST);
         });
 
-        test('sends error response if player not in game', async () => {
+        test('sends error response if checkPlayerInGame is true and player not in game', async () => {
+            const player = new Player(PLAYER_NAME);
             const room = new Room(ROOM_CODE, PLAYER_ID);
             const game = new Game(room.roomID);
             room.currentGameID = game.gameID;
             await db.games.create(game);
+            await db.players.create(player);
             await db.rooms.create(room);
 
-            const event = eventWithContext(new EventContext(room.roomID, game.gameID, PLAYER_ID));
+            const event = eventWithContext(new EventContext(room.roomID, game.gameID, player.playerID));
             const mockWS = getMockWebsocket();
-            const result = await wss.validateEventContext(mockWS, event);
-            expect(result.game).toBeNull();
-            expect(result.room).toBeNull();
-            expectWebsocketErrorEvent(mockWS, event, `player ${PLAYER_ID} is not in game ${game.gameID}`, StatusCodes.BAD_REQUEST);
+            const result = await wss.validateGameEventContext(mockWS, event, false, true);
+            expectErrorResult(result);
+            expectWebsocketErrorEvent(mockWS, event, 'player not in game', StatusCodes.BAD_REQUEST);
         });
 
-        test('returns game and room if context is valid', async () => {
-            const room = new Room(ROOM_CODE, PLAYER_ID);
-            const game = new Game(room.roomID, [PLAYER_ID]);
+        test('success - returns game, player and room if valid', async () => {
+            const player = new Player(PLAYER_NAME);
+            const room = new Room(ROOM_CODE, player.playerID);
+            const game = new Game(room.roomID, [player.playerID]);
+            player.currentRoomID = room.roomID;
             room.currentGameID = game.gameID;
             await db.games.create(game);
+            await db.players.create(player);
             await db.rooms.create(room);
 
-            const event = eventWithContext(new EventContext(room.roomID, game.gameID, PLAYER_ID));
+            const event = eventWithContext(new EventContext(room.roomID, game.gameID, player.playerID));
             const mockWS = getMockWebsocket();
-            const result = await wss.validateEventContext(mockWS, event);
+            const result = await wss.validateGameEventContext(mockWS, event, true, true);
+            expect(result).not.toBeNull();
             expect(result.game).toEqual(game);
+            expect(result.player).toEqual(player);
             expect(result.room).toEqual(room);
             expect(mockWS.send).not.toHaveBeenCalled();
         });
@@ -784,22 +1027,24 @@ describe('WebsocketServer', () => {
     describe('handleReassignRoomHost', () => {
         const eventType = EventTypes.REASSIGN_ROOM_HOST;
 
-        test('sends error response if room ID missing', async () => {
-            await expectMissingRoomIDEvent(wss, eventType);
-        });
-
         test('sends error response if new host player ID missing', async () => {
-            await expectMissingPlayerIDEvent(wss, eventType, {roomID: ROOM_ID}, 'missing new host player ID');
-        });
-
-        test('sends error response if room not found', async () => {
-            await expectRoomNotFoundEvent(wss, eventType, {roomID: ROOM_ID, newHostPlayerID: PLAYER_ID});
+            await expectMissingPlayerIDEvent(wss, eventType);
         });
 
         test('sends error response if player not found', async () => {
-            const room = new Room(ROOM_CODE, PLAYER_ID);
-            await db.rooms.create(room);
-            await expectPlayerNotFoundEvent(wss, eventType, {roomID: room.roomID, newHostPlayerID: PLAYER_ID});
+            await expectPlayerNotFoundEvent(wss, eventType, {newHostPlayerID: PLAYER_ID});
+        });
+
+        test('sends error response if room ID missing', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+            await expectMissingRoomIDEvent(wss, eventType, {newHostPlayerID: player.playerID});
+        });
+
+        test('sends error response if room not found', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+            await expectRoomNotFoundEvent(wss, eventType, {newHostPlayerID: player.playerID, roomID: ROOM_ID});
         });
 
         test('sends error response if player not in room', async () => {
@@ -807,7 +1052,7 @@ describe('WebsocketServer', () => {
             const room = new Room(ROOM_CODE, PLAYER_ID);
             await db.players.create(player);
             await db.rooms.create(room);
-            await expectPlayerNotInRoomEvent(wss, eventType, {roomID: room.roomID, newHostPlayerID: player.playerID});
+            await expectPlayerNotInRoomEvent(wss, eventType, {newHostPlayerID: player.playerID, roomID: room.roomID});
         });
 
         test('success - reassigns room host', async () => {
@@ -819,7 +1064,7 @@ describe('WebsocketServer', () => {
             await db.rooms.create(room);
 
             const spy = jest.spyOn(wss, 'broadcast');
-            const event = new WebsocketEvent(eventType, {roomID: room.roomID, newHostPlayerID: player.playerID});
+            const event = new WebsocketEvent(eventType, {newHostPlayerID: player.playerID, roomID: room.roomID});
             await wss.handleReassignRoomHost(getMockWebsocket(), event);
 
             const newRoom = await db.rooms.getByID(room.roomID);
@@ -836,7 +1081,7 @@ describe('WebsocketServer', () => {
             await db.rooms.create(room);
 
             const spy = jest.spyOn(wss, 'broadcast');
-            const event = new WebsocketEvent(eventType, {roomID: room.roomID, newHostPlayerID: player.playerID});
+            const event = new WebsocketEvent(eventType, {newHostPlayerID: player.playerID, roomID: room.roomID});
             await wss.handleReassignRoomHost(getMockWebsocket(), event);
 
             const newRoom = await db.rooms.getByID(room.roomID);
@@ -853,12 +1098,14 @@ describe('WebsocketServer', () => {
             await expectMissingPlayerIDEvent(wss, eventType);
         });
 
-        test('sends error response if room ID missing', async () => {
-            await expectMissingRoomIDEvent(wss, eventType, {playerID: PLAYER_ID});
+        test('sends error response if player not found', async () => {
+            await expectPlayerNotFoundEvent(wss, eventType, {playerID: PLAYER_ID});
         });
 
-        test('sends error response if player not found', async () => {
-            await expectPlayerNotFoundEvent(wss, eventType, {playerID: PLAYER_ID, roomID: ROOM_ID});
+        test('sends error response if room ID missing', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+            await expectMissingRoomIDEvent(wss, eventType, {playerID: player.playerID});
         });
 
         test('sends error response if room not found', async () => {
@@ -906,12 +1153,14 @@ describe('WebsocketServer', () => {
             await expectMissingPlayerIDEvent(wss, eventType);
         });
 
-        test('sends error response if room code missing', async () => {
-            await expectMissingRoomIDEvent(wss, eventType, {playerID: PLAYER_ID}, 'missing room code');
+        test('sends error response if player not found', async () => {
+            await expectPlayerNotFoundEvent(wss, eventType, {playerID: PLAYER_ID});
         });
 
-        test('sends error response if player not found', async () => {
-            await expectPlayerNotFoundEvent(wss, eventType, {playerID: PLAYER_ID, roomCode: ROOM_ID});
+        test('sends error response if room code missing', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+            await expectMissingRoomIDEvent(wss, eventType, {playerID: player.playerID}, 'missing room code');
         });
 
         test('sends error response if room not found', async () => {
@@ -983,22 +1232,24 @@ describe('WebsocketServer', () => {
     describe('handleLeaveRoom', () => {
         const eventType = EventTypes.LEAVE_ROOM;
 
-        test('sends error response if room ID missing', async () => {
-            await expectMissingRoomIDEvent(wss, eventType);
-        });
-
         test('sends error response if player ID missing', async () => {
-            await expectMissingPlayerIDEvent(wss, eventType, {roomID: ROOM_ID});
-        });
-
-        test('sends error response if room not found', async () => {
-            await expectRoomNotFoundEvent(wss, eventType, {roomID: ROOM_ID, playerID: PLAYER_ID});
+            await expectMissingPlayerIDEvent(wss, eventType);
         });
 
         test('sends error response if player not found', async () => {
-            const room = new Room(ROOM_CODE, PLAYER_ID);
-            await db.rooms.create(room);
-            await expectPlayerNotFoundEvent(wss, eventType, {roomID: room.roomID, playerID: PLAYER_ID});
+            await expectPlayerNotFoundEvent(wss, eventType, {playerID: PLAYER_ID});
+        });
+
+        test('sends error response if room ID missing', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+            await expectMissingRoomIDEvent(wss, eventType, {playerID: player.playerID});
+        });
+
+        test('sends error response if room not found', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+            await expectRoomNotFoundEvent(wss, eventType, {playerID: player.playerID, roomID: ROOM_ID});
         });
 
         test('sends error response if player not in room', async () => {
@@ -1006,7 +1257,7 @@ describe('WebsocketServer', () => {
             const room = new Room(ROOM_CODE, PLAYER_ID);
             await db.players.create(player);
             await db.rooms.create(room);
-            await expectPlayerNotInRoomEvent(wss, eventType, {roomID: room.roomID, playerID: player.playerID});
+            await expectPlayerNotInRoomEvent(wss, eventType, {playerID: player.playerID, roomID: room.roomID});
         });
 
         test('success - player leaves room', async () => {
@@ -1017,7 +1268,7 @@ describe('WebsocketServer', () => {
             await db.rooms.create(room);
 
             const spy = jest.spyOn(wss, 'broadcast');
-            const event = new WebsocketEvent(eventType, {roomID: room.roomID, playerID: player.playerID});
+            const event = new WebsocketEvent(eventType, {playerID: player.playerID, roomID: room.roomID});
             const mockWS = getMockWebsocket();
             wss.connectedClients[room.roomID] = {[player.playerID]: mockWS};
             await wss.handleLeaveRoom(mockWS, event);
@@ -1040,47 +1291,54 @@ describe('WebsocketServer', () => {
     describe('handleJoinGame', () => {
         const eventType = EventTypes.JOIN_GAME;
 
-        test('sends error response if room ID missing', async () => {
-            await expectMissingRoomIDEvent(wss, eventType);
-        });
-
-        test('sends error response if game ID missing', async () => {
-            const event = new WebsocketEvent(eventType, {context: {roomID: ROOM_ID}});
-            const mockWS = getMockWebsocket();
-            await wss.handleJoinGame(mockWS, event);
-            expectWebsocketErrorEvent(mockWS, event, 'missing game ID', StatusCodes.BAD_REQUEST);
-        });
-
         test('sends error response if player ID missing', async () => {
-            await expectMissingPlayerIDEvent(wss, eventType, {context: {roomID: ROOM_ID, gameID: GAME_ID}});
-        });
-
-        test('sends error response if room not found', async () => {
-            await expectRoomNotFoundEvent(wss, eventType, {context: new EventContext(ROOM_ID, GAME_ID, PLAYER_ID)});
-        });
-
-        test('sends error response if game not found', async () => {
-            const room = new Room(ROOM_CODE, PLAYER_ID);
-            await db.rooms.create(room);
-            await expectGameNotFoundEvent(wss, eventType, {context: new EventContext(room.roomID, GAME_ID, PLAYER_ID)});
+            await expectMissingPlayerIDEvent(wss, eventType);
         });
 
         test('sends error response if player not found', async () => {
-            const room = new Room(ROOM_CODE, PLAYER_ID);
-            const game = new Game(room.roomID);
-            await db.games.create(game);
-            await db.rooms.create(room);
-            await expectPlayerNotFoundEvent(wss, eventType, {context: new EventContext(room.roomID, game.gameID, PLAYER_ID)});
+            await expectPlayerNotFoundEvent(wss, eventType, {context: {playerID: PLAYER_ID}});
+        });
+
+        test('sends error response if room ID missing', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+            await expectMissingRoomIDEvent(wss, eventType, {context: {playerID: player.playerID}});
+        });
+
+        test('sends error response if room not found', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+            await expectRoomNotFoundEvent(wss, eventType, {context: {playerID: player.playerID, roomID: ROOM_ID}});
         });
 
         test('sends error response if player not in room', async () => {
             const player = new Player(PLAYER_NAME);
             const room = new Room(ROOM_CODE, PLAYER_ID);
-            const game = new Game(room.roomID);
-            await db.games.create(game);
             await db.players.create(player);
             await db.rooms.create(room);
-            await expectPlayerNotInRoomEvent(wss, eventType, {context: new EventContext(room.roomID, game.gameID, player.playerID)});
+            await expectPlayerNotInRoomEvent(wss, eventType, {context: {playerID: player.playerID, roomID: room.roomID}});
+        });
+
+        test('sends error response if game ID missing', async () => {
+            const player = new Player(PLAYER_NAME);
+            const room = new Room(ROOM_CODE, player.playerID);
+            player.currentRoomID = room.roomID;
+            await db.players.create(player);
+            await db.rooms.create(room);
+
+            const event = new WebsocketEvent(eventType, {context: {playerID: player.playerID, roomID: room.roomID}});
+            const mockWS = getMockWebsocket();
+            await wss.handleJoinGame(mockWS, event);
+            expectWebsocketErrorEvent(mockWS, event, 'missing game ID', StatusCodes.BAD_REQUEST);
+        });
+
+        test('sends error response if game not found', async () => {
+            const player = new Player(PLAYER_NAME);
+            const room = new Room(ROOM_CODE, player.playerID);
+            player.currentRoomID = room.roomID;
+            await db.players.create(player);
+            await db.rooms.create(room);
+            await expectGameNotFoundEvent(wss, eventType, {context: new EventContext(room.roomID, GAME_ID, player.playerID)});
         });
 
         test('sends error response if max players exceeded', async () => {
@@ -1092,6 +1350,7 @@ describe('WebsocketServer', () => {
             player1.currentRoomID = room.roomID;
             player2.currentRoomID = room.roomID;
             player3.currentRoomID = room.roomID;
+            room.currentGameID = game.gameID;
             room.playerIDs = [player1.playerID, player2.playerID, player3.playerID];
             await db.games.create(game);
             await db.players.createMany([player1, player2, player3]);
@@ -1107,6 +1366,7 @@ describe('WebsocketServer', () => {
             const room = new Room(ROOM_CODE, player.playerID);
             const game = new Game(room.roomID);
             player.currentRoomID = room.roomID;
+            room.currentGameID = game.gameID;
             await db.games.create(game);
             await db.players.create(player);
             await db.rooms.create(room);
@@ -1134,31 +1394,37 @@ describe('WebsocketServer', () => {
     describe('handleStartSpectating', () => {
         const eventType = EventTypes.START_SPECTATING;
 
-        test('sends error response if room ID missing', async () => {
-            await expectMissingRoomIDEvent(wss, eventType);
-        });
-
         test('sends error response if player ID missing', async () => {
-            await expectMissingPlayerIDEvent(wss, eventType, {roomID: ROOM_ID});
+            await expectMissingPlayerIDEvent(wss, eventType);
         });
 
         test('sends error response if player not found', async () => {
-            await expectPlayerNotFoundEvent(wss, eventType, {roomID: ROOM_ID, playerID: PLAYER_ID});
+            await expectPlayerNotFoundEvent(wss, eventType, {playerID: PLAYER_ID});
+        });
+
+        test('sends error response if room ID missing', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+            await expectMissingRoomIDEvent(wss, eventType, {playerID: player.playerID});
         });
 
         test('sends error response if player not in room', async () => {
             const player = new Player(PLAYER_NAME);
+            const room = new Room(ROOM_CODE, PLAYER_ID);
             await db.players.create(player);
-            await expectPlayerNotInRoomEvent(wss, eventType, {roomID: ROOM_ID, playerID: player.playerID});
+            await db.rooms.create(room);
+            await expectPlayerNotInRoomEvent(wss, eventType, {playerID: player.playerID, roomID: room.roomID});
         });
 
         test('success - player starts spectating', async () => {
             const player = new Player(PLAYER_NAME);
-            player.currentRoomID = ROOM_ID;
+            const room = new Room(ROOM_CODE, player.playerID);
+            player.currentRoomID = room.roomID;
             await db.players.create(player);
+            await db.rooms.create(room);
 
             const spy = jest.spyOn(wss, 'broadcast');
-            const event = new WebsocketEvent(eventType, {roomID: ROOM_ID, playerID: player.playerID});
+            const event = new WebsocketEvent(eventType, {playerID: player.playerID, roomID: room.roomID});
             await wss.handleStartSpectating(getMockWebsocket(), event);
 
             const newPlayer = await db.players.getByID(player.playerID);
@@ -1171,39 +1437,53 @@ describe('WebsocketServer', () => {
     describe('handleStopSpectating', () => {
         const eventType = EventTypes.STOP_SPECTATING;
 
-        test('sends error response if room ID missing', async () => {
-            await expectMissingRoomIDEvent(wss, eventType);
-        });
-
         test('sends error response if player ID missing', async () => {
-            await expectMissingPlayerIDEvent(wss, eventType, {roomID: ROOM_ID});
+            await expectMissingPlayerIDEvent(wss, eventType);
         });
 
         test('sends error response if player not found', async () => {
-            await expectPlayerNotFoundEvent(wss, eventType, {roomID: ROOM_ID, playerID: PLAYER_ID});
+            await expectPlayerNotFoundEvent(wss, eventType, {playerID: PLAYER_ID});
+        });
+
+        test('sends error response if room ID missing', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+            await expectMissingRoomIDEvent(wss, eventType, {playerID: player.playerID});
+        });
+
+        test('sends error response if room not found', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+            await expectRoomNotFoundEvent(wss, eventType, {playerID: player.playerID, roomID: ROOM_ID});
         });
 
         test('sends error response if player not in room', async () => {
             const player = new Player(PLAYER_NAME);
+            const room = new Room(ROOM_CODE, PLAYER_ID);
             await db.players.create(player);
-            await expectPlayerNotInRoomEvent(wss, eventType, {roomID: ROOM_ID, playerID: player.playerID});
+            await db.rooms.create(room);
+            await expectPlayerNotInRoomEvent(wss, eventType, {playerID: player.playerID, roomID: room.roomID});
         });
 
         test('sends error response if game not found', async () => {
             const player = new Player(PLAYER_NAME);
-            player.currentRoomID = ROOM_ID;
+            const room = new Room(ROOM_CODE, player.playerID);
+            player.currentRoomID = room.roomID;
             await db.players.create(player);
-            await expectGameNotFoundEvent(wss, eventType, {roomID: ROOM_ID, gameID: GAME_ID, playerID: player.playerID});
+            await db.rooms.create(room);
+            await expectGameNotFoundEvent(wss, eventType, {gameID: GAME_ID, playerID: player.playerID, roomID: room.roomID});
         });
 
         test('sends error response if player not in game', async () => {
             const game = new Game(ROOM_ID);
             const player = new Player(PLAYER_NAME);
-            player.currentRoomID = ROOM_ID;
+            const room = new Room(ROOM_CODE, player.playerID);
+            player.currentRoomID = room.roomID;
             await db.games.create(game);
             await db.players.create(player);
+            await db.rooms.create(room);
 
-            const event = new WebsocketEvent(eventType, {roomID: ROOM_ID, gameID: game.gameID, playerID: player.playerID});
+            const event = new WebsocketEvent(eventType, {gameID: game.gameID, playerID: player.playerID, roomID: room.roomID});
             const mockWS = getMockWebsocket();
             await wss.handleStopSpectating(mockWS, event);
             expectWebsocketErrorEvent(mockWS, event, 'player not in game', StatusCodes.BAD_REQUEST);
@@ -1213,7 +1493,7 @@ describe('WebsocketServer', () => {
             const player1 = new Player('Fred');
             const player2 = new Player('Barney');
             const player3 = new Player('Betty');
-            const room = new Room(ROOM_CODE, PLAYER_ID);
+            const room = new Room(ROOM_CODE, player3.playerID);
             const game = new Game(room.roomID, [player1.playerID, player2.playerID, player3.playerID]);
             player1.currentRoomID = room.roomID;
             player2.currentRoomID = room.roomID;
@@ -1226,29 +1506,33 @@ describe('WebsocketServer', () => {
 
         test('success - player stops spectating in game', async () => {
             const player = new Player(PLAYER_NAME, null, true);
-            const game = new Game(ROOM_ID, [player.playerID]);
-            player.currentRoomID = ROOM_ID;
+            const room = new Room(ROOM_CODE, player.playerID);
+            const game = new Game(room.roomID, [player.playerID]);
+            player.currentRoomID = room.roomID;
             await db.games.create(game);
             await db.players.create(player);
+            await db.rooms.create(room);
 
             const spy = jest.spyOn(wss, 'broadcast');
-            const event = new WebsocketEvent(eventType, {roomID: ROOM_ID, gameID: game.gameID, playerID: player.playerID});
+            const event = new WebsocketEvent(eventType, {gameID: game.gameID, playerID: player.playerID, roomID: room.roomID});
             const mockWS = getMockWebsocket();
             await wss.handleStopSpectating(mockWS, event);
 
             const newPlayer = await db.players.getByID(player.playerID);
             expect(newPlayer.spectating).toBeFalsy();
 
-            expect(spy).toHaveBeenCalledWith(new WebsocketEvent(EventTypes.PLAYER_STOPPED_SPECTATING, {roomID: ROOM_ID, playerID: player.playerID}));
+            expect(spy).toHaveBeenCalledWith(new WebsocketEvent(EventTypes.PLAYER_STOPPED_SPECTATING, {roomID: room.roomID, playerID: player.playerID}));
         });
 
         test('success - player stops spectating without game (in lobby)', async () => {
             const player = new Player(PLAYER_NAME, null, true);
-            player.currentRoomID = ROOM_ID;
+            const room = new Room(ROOM_CODE, player.playerID);
+            player.currentRoomID = room.roomID;
             await db.players.create(player);
+            await db.rooms.create(room);
 
             const spy = jest.spyOn(wss, 'broadcast');
-            const event = new WebsocketEvent(eventType, {roomID: ROOM_ID, playerID: player.playerID});
+            const event = new WebsocketEvent(eventType, {playerID: player.playerID, roomID: room.roomID});
             await wss.handleStopSpectating(getMockWebsocket(), event);
 
             const newPlayer = await db.players.getByID(player.playerID);
@@ -1261,12 +1545,40 @@ describe('WebsocketServer', () => {
     describe('handleAbandonGame', () => {
         const eventType = EventTypes.ABANDON_GAME;
 
+        test('sends error response if player ID missing', async () => {
+            await expectMissingPlayerIDEvent(wss, eventType);
+        });
+
+        test('sends error response if player not found', async () => {
+            await expectPlayerNotFoundEvent(wss, eventType, {context: {playerID: PLAYER_ID}});
+        });
+
         test('sends error response if room ID missing', async () => {
-            await expectMissingRoomIDEvent(wss, eventType);
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+            await expectMissingRoomIDEvent(wss, eventType, {context: {playerID: player.playerID}});
         });
 
         test('sends error response if room not found', async () => {
-            await expectRoomNotFoundEvent(wss, eventType, {context: new EventContext(ROOM_ID, GAME_ID, PLAYER_ID)}, `room "${ROOM_ID}" not found`);
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+            await expectRoomNotFoundEvent(wss, eventType, {context: {playerID: player.playerID, roomID: ROOM_ID}});
+        });
+
+        test('sends error response if game ID missing', async () => {
+            const player = new Player(PLAYER_NAME);
+            const room = new Room(ROOM_CODE, PLAYER_ID);
+            await db.players.create(player);
+            await db.rooms.create(room);
+            await expectMissingGameIDEvent(wss, eventType, {context: {playerID: player.playerID, roomID: room.roomID}});
+        });
+
+        test('sends error response if game not found', async () => {
+            const player = new Player(PLAYER_NAME);
+            const room = new Room(ROOM_CODE, PLAYER_ID);
+            await db.players.create(player);
+            await db.rooms.create(room);
+            await expectGameNotFoundEvent(wss, eventType, {context: new EventContext(room.roomID, GAME_ID, player.playerID)});
         });
 
         test('sends error response if request does not come from host', async () => {
@@ -1313,31 +1625,34 @@ describe('WebsocketServer', () => {
     describe('handleKickPlayer', () => {
         const eventType = EventTypes.KICK_PLAYER;
 
-        test('sends error response if room ID missing', async () => {
-            await expectMissingRoomIDEvent(wss, eventType);
-        });
-
         test('sends error response if player ID missing', async () => {
-            await expectMissingPlayerIDEvent(wss, eventType, {roomID: ROOM_ID});
-        });
-
-        test('sends error response if room not found', async () => {
-            await expectRoomNotFoundEvent(wss, eventType, {roomID: ROOM_ID, playerID: PLAYER_ID});
+            await expectMissingPlayerIDEvent(wss, eventType);
         });
 
         test('sends error response if player not found', async () => {
-            const room = new Room(ROOM_CODE, PLAYER_ID);
-            await db.rooms.create(room);
-            await expectPlayerNotFoundEvent(wss, eventType, {roomID: room.roomID, playerID: PLAYER_ID});
+            await expectPlayerNotFoundEvent(wss, eventType, {playerID: PLAYER_ID});
+        });
+
+        test('sends error response if room ID missing', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+            await expectMissingRoomIDEvent(wss, eventType, {playerID: player.playerID});
+        });
+
+        test('sends error response if room not found', async () => {
+            const player = new Player(PLAYER_NAME);
+            await db.players.create(player);
+            await expectRoomNotFoundEvent(wss, eventType, {playerID: player.playerID, roomID: ROOM_ID});
         });
 
         test('sends error response if request does not come from host', async () => {
             const player = new Player(PLAYER_NAME);
-            const room = new Room(ROOM_CODE, PLAYER_ID);
+            const room = new Room(ROOM_CODE, player.playerID);
+            player.currentRoomID = room.roomID;
             await db.players.create(player);
             await db.rooms.create(room);
 
-            const event = new WebsocketEvent(eventType, {roomID: room.roomID, playerID: player.playerID});
+            const event = new WebsocketEvent(eventType, {playerID: player.playerID, roomID: room.roomID});
             const mockWS = getMockWebsocket();
             await wss.handleKickPlayer(mockWS, event);
             expectWebsocketErrorEvent(mockWS, event, 'only the host may kick players', StatusCodes.FORBIDDEN);
@@ -1350,7 +1665,7 @@ describe('WebsocketServer', () => {
             await db.players.create(player);
             await db.rooms.create(room);
 
-            const event = new WebsocketEvent(eventType, {roomID: room.roomID, playerID: player.playerID});
+            const event = new WebsocketEvent(eventType, {playerID: player.playerID, roomID: room.roomID});
             const mockWS = getMockWebsocket();
             wss.connectedClients[room.roomID] = {[PLAYER_ID]: mockWS};
             await wss.handleKickPlayer(mockWS, event);
@@ -1366,11 +1681,11 @@ describe('WebsocketServer', () => {
             await db.players.create(player);
             await db.rooms.create(room);
 
-            const event = new WebsocketEvent(eventType, {roomID: room.roomID, playerID: player.playerID});
+            const event = new WebsocketEvent(eventType, {playerID: player.playerID, roomID: room.roomID});
             const mockWS = getMockWebsocket();
             wss.connectedClients[room.roomID] = {[PLAYER_ID]: mockWS};
             await wss.handleKickPlayer(mockWS, event);
-            expectWebsocketErrorEvent(mockWS, event, 'player already kicked from room', StatusCodes.BAD_REQUEST);
+            expectWebsocketErrorEvent(mockWS, event, 'player was kicked from room', StatusCodes.BAD_REQUEST);
         });
 
         test('sends error response if duration invalid', async () => {
@@ -1381,7 +1696,7 @@ describe('WebsocketServer', () => {
             await db.players.create(player);
             await db.rooms.create(room);
 
-            const event = new WebsocketEvent(eventType, {roomID: room.roomID, playerID: player.playerID, duration: -1});
+            const event = new WebsocketEvent(eventType, {playerID: player.playerID, roomID: room.roomID, duration: -1});
             const mockWS = getMockWebsocket();
             wss.connectedClients[room.roomID] = {[PLAYER_ID]: mockWS};
             await wss.handleKickPlayer(mockWS, event);
@@ -1397,7 +1712,7 @@ describe('WebsocketServer', () => {
             await db.rooms.create(room);
 
             const spy = jest.spyOn(wss, 'broadcast');
-            const event = new WebsocketEvent(eventType, {roomID: room.roomID, playerID: player.playerID, duration: 60});
+            const event = new WebsocketEvent(eventType, {playerID: player.playerID, roomID: room.roomID, duration: 60});
             const hostWS = getMockWebsocket();
             const playerWS = getMockWebsocket();
             wss.connectedClients[room.roomID] = {
