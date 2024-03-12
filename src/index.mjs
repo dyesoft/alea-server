@@ -9,6 +9,7 @@ export * as mail from './mail.mjs';
 
 export * from './server.mjs';
 export * as server from './server.mjs';
+export { default as Server } from './server.mjs';
 
 export * from './websockets.mjs';
 export * as websockets from './websockets.mjs';
