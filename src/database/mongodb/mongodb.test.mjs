@@ -1,5 +1,5 @@
 import { Player, Room } from '@dyesoft/alea-core';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from '@jest/globals';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { getTestDB, TEST_DB_NAME } from '../../testutils.mjs';
 import { MongoDB } from './mongodb.mjs';
 
@@ -37,10 +37,7 @@ describe('MongoDB', () => {
 
         test('URL in config', () => {
             const config = {
-                db: {
-                    name: TEST_DB_NAME,
-                    url: TEST_DB_URL,
-                },
+                db: {url: TEST_DB_URL},
             };
             const mongodb = new MongoDB(config);
             expect(mongodb.url).toEqual(TEST_DB_URL);
@@ -49,7 +46,6 @@ describe('MongoDB', () => {
         test('host and port in config', () => {
             const config = {
                 db: {
-                    name: TEST_DB_NAME,
                     host: TEST_DB_HOST,
                     port: TEST_DB_PORT,
                 },
@@ -57,15 +53,28 @@ describe('MongoDB', () => {
             const mongodb = new MongoDB(config);
             expect(mongodb.url).toEqual(TEST_DB_URL);
         });
+
+        test('additional custom collections', () => {
+            const config = {
+                db: {url: TEST_DB_URL},
+            };
+            const collections = {
+                tests: jest.fn(),
+            };
+            const mongodb = new MongoDB(config, collections);
+            expect(mongodb.games).toBeNull();
+            expect(mongodb.players).toBeNull();
+            expect(mongodb.rooms).toBeNull();
+            expect(mongodb.roomLinkRequests).toBeNull();
+            expect(mongodb.tests).toBeNull();
+            expect(collections.tests).not.toHaveBeenCalled();
+        });
     });
 
     describe('init', () => {
         test('creates session, DB, and collections', async () => {
             const config = {
-                db: {
-                    name: TEST_DB_NAME,
-                    url: global.__MONGO_URI__,
-                },
+                db: {url: global.__MONGO_URI__},
             };
             const mongodb = new MongoDB(config);
             await mongodb.init();
@@ -77,15 +86,49 @@ describe('MongoDB', () => {
             expect(mongodb.roomLinkRequests).not.toBeNull();
             await mongodb.close();
         });
+
+        test('additional custom collections', async () => {
+            const config = {
+                db: {url: global.__MONGO_URI__},
+            };
+            const mockCollection = {};
+            const collections = {
+                tests: jest.fn().mockReturnValue(mockCollection),
+            };
+            const mongodb = new MongoDB(config, collections);
+            await mongodb.init();
+            expect(mongodb.games).not.toBeNull();
+            expect(mongodb.players).not.toBeNull();
+            expect(mongodb.rooms).not.toBeNull();
+            expect(mongodb.roomLinkRequests).not.toBeNull();
+            expect(mongodb.tests).toBe(mockCollection);
+            expect(collections.tests).toHaveBeenCalledWith(mongodb.db);
+            await mongodb.close();
+        });
+
+        test('override default collections', async () => {
+            const config = {
+                db: {url: global.__MONGO_URI__},
+            };
+            const mockCollection = {};
+            const collections = {
+                games: jest.fn().mockReturnValue(mockCollection),
+            };
+            const mongodb = new MongoDB(config, collections);
+            await mongodb.init();
+            expect(mongodb.games).toBe(mockCollection);
+            expect(mongodb.players).not.toBeNull();
+            expect(mongodb.rooms).not.toBeNull();
+            expect(mongodb.roomLinkRequests).not.toBeNull();
+            expect(collections.games).toHaveBeenCalledWith(mongodb.db);
+            await mongodb.close();
+        });
     });
 
     describe('command', () => {
         test('runs ping command successfully', async () => {
             const config = {
-                db: {
-                    name: TEST_DB_NAME,
-                    url: global.__MONGO_URI__,
-                },
+                db: {url: global.__MONGO_URI__},
             };
             const mongodb = new MongoDB(config);
             await mongodb.init();

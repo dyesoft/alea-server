@@ -5,28 +5,45 @@ import expressWs from 'express-ws';
 import fs from 'fs';
 import http from 'http';
 import https from 'https';
-import { apiErrorHandler } from './api/common.mjs';
+import log from 'log';
+import { apiErrorHandler, apiRequestLogHandler, apiResponseLogHandler } from './api/common.mjs';
 import GameAPI from './api/game.mjs';
 import PlayerAPI from './api/player.mjs';
 import RoomAPI from './api/room.mjs';
 import RoomLinkRequestAPI from './api/roomLinkRequest.mjs';
 import StatusAPI from './api/status.mjs';
+import { MongoDB } from './database/index.mjs';
+import { Mailer } from './mail.mjs';
 import { WebsocketServer } from './websockets.mjs';
 
 const DEFAULT_PORT = 3456;
 
+const DEFAULT_ROUTES = {
+    game: (server) => new GameAPI(server.db, server.wss, server.config.game?.maxPlayersPerGame),
+    player: (server) => new PlayerAPI(server.db, server.wss, server.mailer),
+    request: (server) => new RoomLinkRequestAPI(server.db, server.mailer),
+    room: (server) => new RoomAPI(server.db, server.wss, server.mailer, server.config.admin?.playerIDs),
+    status: (server) => new StatusAPI(server.db, server.config.packageVersion),
+};
+
+const logger = log.get('server');
+const requestLogger = log.get('api');
+
 /* Server encapsulates the route definitions and resources needed to run an instance of the API server. */
 export default class Server {
     /* Create a new server using the given configuration and database connection. */
-    constructor(config, db, mailer) {
+    constructor(config, db = null, mailer = null, routes = {}) {
+        this.config = config || {};
+        this.db = db || new MongoDB(this.config);
+        this.mailer = mailer || new Mailer(this.config);
+        this.port = this.config.server?.port || DEFAULT_PORT;
+        this.wss = new WebsocketServer(this.db, this.config);
         this.app = express();
-        this.wss = new WebsocketServer(db, config);
-        this.port = config.server?.port || DEFAULT_PORT;
 
-        if (config.ssl?.certPath && config.ssl?.keyPath) {
+        if (this.config.ssl?.certPath && this.config.ssl?.keyPath) {
             const serverOptions = {
-                cert: fs.readFileSync(config.ssl.certPath),
-                key: fs.readFileSync(config.ssl.keyPath)
+                cert: fs.readFileSync(this.config.ssl.certPath),
+                key: fs.readFileSync(this.config.ssl.keyPath)
             };
             this.server = https.createServer(serverOptions, this.app);
         } else {
@@ -34,25 +51,49 @@ export default class Server {
         }
 
         expressWs(this.app, this.server);
-
         this.app.use(bodyParser.json());
         this.app.use(cors());
-        this.app.use('/api/game', new GameAPI(db, this.wss, config.game?.maxPlayersPerGame).getRouter());
-        this.app.use('/api/player', new PlayerAPI(db, this.wss, mailer).getRouter());
-        this.app.use('/api/room', new RoomAPI(db, this.wss, mailer, config.admin?.playerIDs).getRouter());
-        this.app.use('/api/request', new RoomLinkRequestAPI(db, mailer).getRouter());
-        this.app.use('/api/status', new StatusAPI(db, config.packageVersion).getRouter());
+        this.app.use(apiRequestLogHandler(requestLogger));
+
+        this.routes = {...DEFAULT_ROUTES, ...routes || {}};
+        Object.entries(this.routes).forEach(([path, routeFactory]) => {
+            if (path.startsWith('/')) {
+                path = path.substring(1);
+            }
+            path = `/api/${path}`;
+            try {
+                const routeDef = routeFactory(this);
+                if (routeDef) {
+                    this.app.use(path, routeDef.getRouter());
+                }
+            } catch (e) {
+                logger.error(`Failed to initialize ${path} routes: ${e}`);
+            }
+        });
+
         this.app.use(apiErrorHandler);
+        this.app.use(apiResponseLogHandler(requestLogger));
         this.app.ws('/api/ws', this.wss.handleWebsocket);
     }
 
-    /* Add the given router's endpoints to the server at the given path prefix. */
-    use(path, router) {
-        this.app.use(path, router);
+    /* Initialize the server's database and mailer (if not already initialized). */
+    async init() {
+        await this.db.init();
+        await this.mailer.init();
     }
 
     /* Run the server on the configured port. */
     run() {
-        this.server.listen(this.port);
+        if (!this.server.listening) {
+            this.server.listen(this.port);
+        }
+    }
+
+    /* Stop the server and close the connection to the database. */
+    async stop() {
+        if (this.server.listening) {
+            await this.server.close();
+        }
+        await this.db.close();
     }
 }

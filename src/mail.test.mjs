@@ -8,6 +8,7 @@ import {
     DEFAULT_EMAIL_SIGNATURE_PLACEHOLDER,
     EmailTemplates,
     Mailer,
+    SMTP_PORT,
     TEST_SMTP_HOST,
 } from './mail.mjs';
 import { TEST_EMAIL_MESSAGES } from './testutils.mjs';
@@ -110,7 +111,6 @@ const TEST_CONFIG = {
     },
     smtp: {
         host: TEST_SMTP_HOST,
-        port: 587,
         fromAddress: '"Test App" <noreply@example.com>',
     },
 };

@@ -1,4 +1,4 @@
-import { MongoDB } from './database/mongodb/mongodb.mjs';
+import { MongoDB } from './database/index.mjs';
 import { Mailer, TEST_SMTP_HOST } from './mail.mjs';
 
 export const TEST_DB_NAME = 'test';

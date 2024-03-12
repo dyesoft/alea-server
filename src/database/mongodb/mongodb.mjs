@@ -13,32 +13,49 @@ const DB_CLOSE_DELAY_MILLIS = 50;
 
 const DEFAULT_DB_NAME = 'alea';
 
+const DEFAULT_COLLECTIONS = {
+    games: (db) => new GameCollection(db),
+    players: (db) => new PlayerCollection(db),
+    rooms: (db) => new RoomCollection(db),
+    roomLinkRequests: (db) => new RoomLinkRequestCollection(db),
+};
+
 const logger = log.get('mongodb');
 
 /* Database client that connects to a MongoDB database. */
 export class MongoDB {
     /* Create a MongoDB using the given config and database name. */
-    constructor(config) {
+    constructor(config, collections = {}) {
         this.url = config.db?.url || `mongodb://${config.db?.host}:${config.db?.port}/`;
         this.dbName = config.db?.name || DEFAULT_DB_NAME;
         this.client = new MongoClient(this.url, MONGO_CLIENT_OPTIONS);
         this.session = null;
         this.db = null;
-        this.games = null;
-        this.players = null;
-        this.rooms = null;
-        this.roomLinkRequests = null;
+
+        this.collectionFactories = {...DEFAULT_COLLECTIONS, ...collections || {}};
+        Object.keys(this.collectionFactories).forEach(collectionName => {
+            this[collectionName] = null;
+        });
     }
 
     /* Initialize the underlying connection to the database. */
     async init() {
+        if (this.db) {
+            return;
+        }
         await this.client.connect();
         this.session = this.client.startSession();
         this.db = this.client.db(this.dbName);
-        this.games = new GameCollection(this.db);
-        this.players = new PlayerCollection(this.db);
-        this.rooms = new RoomCollection(this.db);
-        this.roomLinkRequests = new RoomLinkRequestCollection(this.db);
+        Object.entries(this.collectionFactories).forEach(([collectionName, collectionFactory]) => {
+            try {
+                const collection = collectionFactory(this.db);
+                if (collection) {
+                    this[collectionName] = collection;
+                }
+            } catch (e) {
+                logger.error(`Failed to initialize ${collectionName} collection: ${e}`);
+            }
+        });
     }
 
     /* Close the underlying connection to the database. */

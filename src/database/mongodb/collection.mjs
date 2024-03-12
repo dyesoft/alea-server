@@ -61,7 +61,7 @@ export default class MongoCollection {
     }
 
     /* Return the total number of records (rows) in the collection, optionally filtered by the given criteria. */
-    async count(filters = null) {
+    async count(filters = {}) {
         return await this.collection.find(filters || {}).count();
     }
 

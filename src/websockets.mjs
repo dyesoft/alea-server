@@ -84,7 +84,7 @@ export class RoomLogger {
 /* Server for managing websocket connections and handling websocket events. */
 export class WebsocketServer {
     /* Create a WebsocketServer using the given database connection. */
-    constructor(db, config = null) {
+    constructor(db, config = {}) {
         this.db = db;
         this.maxPlayersPerGame = config?.game?.maxPlayersPerGame || null;
         this.pingIntervalMillis = config?.websocket?.pingIntervalMillis ?? DEFAULT_PING_INTERVAL_MILLIS;

@@ -1,6 +1,13 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { StatusCodes } from '@dyesoft/alea-core';
-import { APIError, apiErrorHandler, APIRouteDefinition, PaginationResponse } from './common.mjs';
+import {
+    APIError,
+    apiErrorHandler,
+    apiRequestLogHandler,
+    apiResponseLogHandler,
+    APIRouteDefinition,
+    PaginationResponse,
+} from './common.mjs';
 
 describe('APIError', () => {
     test('constructor', () => {
@@ -25,7 +32,7 @@ describe('apiErrorHandler', () => {
             error: error.message,
             status: error.status,
         });
-        expect(mockNext).not.toHaveBeenCalled();
+        expect(mockNext).toHaveBeenCalledWith();
     });
 
     test('passes other errors to next handler', () => {
@@ -38,6 +45,47 @@ describe('apiErrorHandler', () => {
         expect(mockNext).toHaveBeenCalledWith(error);
         expect(mockStatus).not.toHaveBeenCalled();
         expect(mockJSON).not.toHaveBeenCalled();
+    });
+});
+
+describe('apiRequestLogHandler', () => {
+    test('returns middleware function that logs request info', () => {
+        const mockLogger = {
+            debug: jest.fn(),
+        };
+        const handler = apiRequestLogHandler(mockLogger);
+        expect(handler).toBeDefined();
+
+        const mockReq = {
+            ip: '1.2.3.4',
+            method: 'GET',
+            url: '/api/test',
+        };
+        const mockNext = jest.fn();
+        handler(mockReq, {}, mockNext);
+        expect(mockLogger.debug).toHaveBeenCalledWith('Request:  1.2.3.4 ---> GET /api/test');
+    });
+});
+
+describe('apiResponseLogHandler', () => {
+    test('returns middleware function that logs response info', () => {
+        const mockLogger = {
+            debug: jest.fn(),
+        };
+        const handler = apiResponseLogHandler(mockLogger);
+        expect(handler).toBeDefined();
+
+        const mockReq = {
+            ip: '1.2.3.4',
+            method: 'GET',
+            url: '/api/test',
+        };
+        const mockRes = {
+            statusCode: 200,
+        };
+        const mockNext = jest.fn();
+        handler(mockReq, mockRes, mockNext);
+        expect(mockLogger.debug).toHaveBeenCalledWith('Response: 1.2.3.4 <--- GET /api/test, status: 200');
     });
 });
 
@@ -82,27 +130,40 @@ describe('APIRouteDefinition', () => {
     });
 
     describe('wrapHandler', () => {
-        test('JSON response body', () => {
+        test('JSON response body', async () => {
             const def = new APIRouteDefinition();
             const payload = {test: true};
             const handler = def.wrapHandler((req, res, error) => res.json(payload));
             const mockResJSON = jest.fn();
             const mockNext = jest.fn();
-            handler({}, {json: mockResJSON}, mockNext);
+            await handler({}, {json: mockResJSON}, mockNext);
             expect(mockResJSON).toHaveBeenCalledWith(payload);
-            expect(mockNext).not.toHaveBeenCalled();
+            expect(mockNext).toHaveBeenCalledWith();
         });
 
-        test('error response', () => {
+        test('API error response', async () => {
             const def = new APIRouteDefinition();
             const errorMessage = 'Test error';
             const status = StatusCodes.INTERNAL_SERVER_ERROR;
             const handler = def.wrapHandler((req, res, error) => error(errorMessage, status));
             const mockResJSON = jest.fn();
             const mockNext = jest.fn();
-            handler({}, {json: mockResJSON}, mockNext);
+            await handler({}, {json: mockResJSON}, mockNext);
             expect(mockResJSON).not.toHaveBeenCalled();
             expect(mockNext).toHaveBeenCalledWith(new APIError(errorMessage, status));
+        });
+
+        test('unhandled error response', async () => {
+            const def = new APIRouteDefinition();
+            const error = new Error('Test error');
+            const handler = def.wrapHandler((req, res, err) => {
+                throw error;
+            });
+            const mockResJSON = jest.fn();
+            const mockNext = jest.fn();
+            await handler({}, {json: mockResJSON}, mockNext);
+            expect(mockResJSON).not.toHaveBeenCalled();
+            expect(mockNext).toHaveBeenCalledWith(error);
         });
     });
 

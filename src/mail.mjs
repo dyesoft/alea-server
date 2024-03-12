@@ -1,6 +1,8 @@
 import log from 'log';
 import nodemailer from 'nodemailer';
 
+export const SMTP_PORT = 587;
+
 export const TEST_SMTP_HOST = 'smtp.ethereal.email';
 
 export const ADMIN_EMAIL_PLACEHOLDER = '{{ADMIN_EMAIL}}';
@@ -139,6 +141,9 @@ export class Mailer {
     }
 
     async init() {
+        if (this.transporter) {
+            return;
+        }
         try {
             let user, password;
             if (this.smtpConfig.host === TEST_SMTP_HOST) {
@@ -151,7 +156,7 @@ export class Mailer {
             }
             this.transporter = nodemailer.createTransport({
                 host: this.smtpConfig.host,
-                port: this.smtpConfig.port,
+                port: this.smtpConfig.port || SMTP_PORT,
                 secure: false, // true for 465, false for other ports
                 auth: {
                     user: user,
