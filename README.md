@@ -1,6 +1,6 @@
 # alea-server
 
-alea-server provides the server for the Alea game engine.
+alea-server provides the API and websocket server for the Alea game engine.
 
 ## Installation
 

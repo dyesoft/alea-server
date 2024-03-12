@@ -1,7 +1,7 @@
 {
   "name": "@dyesoft/alea-server",
   "version": "0.1.0",
-  "description": "Server for the Alea game engine",
+  "description": "API and websocket server for the Alea game engine",
   "keywords": [
     "alea",
     "game engine"
