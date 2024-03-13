@@ -51,7 +51,7 @@ describe('apiErrorHandler', () => {
 describe('apiRequestLogHandler', () => {
     test('returns middleware function that logs request info', () => {
         const mockLogger = {
-            debug: jest.fn(),
+            info: jest.fn(),
         };
         const handler = apiRequestLogHandler(mockLogger);
         expect(handler).toBeDefined();
@@ -63,14 +63,14 @@ describe('apiRequestLogHandler', () => {
         };
         const mockNext = jest.fn();
         handler(mockReq, {}, mockNext);
-        expect(mockLogger.debug).toHaveBeenCalledWith('Request:  1.2.3.4 ---> GET /api/test');
+        expect(mockLogger.info).toHaveBeenCalledWith('Request:  1.2.3.4 ---> GET /api/test');
     });
 });
 
 describe('apiResponseLogHandler', () => {
     test('returns middleware function that logs response info', () => {
         const mockLogger = {
-            debug: jest.fn(),
+            info: jest.fn(),
         };
         const handler = apiResponseLogHandler(mockLogger);
         expect(handler).toBeDefined();
@@ -85,7 +85,7 @@ describe('apiResponseLogHandler', () => {
         };
         const mockNext = jest.fn();
         handler(mockReq, mockRes, mockNext);
-        expect(mockLogger.debug).toHaveBeenCalledWith('Response: 1.2.3.4 <--- GET /api/test, status: 200');
+        expect(mockLogger.info).toHaveBeenCalledWith('Response: 1.2.3.4 <--- GET /api/test, status: 200');
     });
 });
 

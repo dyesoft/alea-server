@@ -39,6 +39,7 @@ export default class Server {
         this.config = config || {};
         this.db = db;
         this.mailer = mailer;
+        this.logRequests = this.config.server?.logRequests ?? false;
         this.port = this.config.server?.port || DEFAULT_PORT;
         this.wss = new WebsocketServer(this.db, this.config);
         this.app = express();
@@ -56,7 +57,10 @@ export default class Server {
         expressWs(this.app, this.server);
         this.app.use(bodyParser.json());
         this.app.use(cors());
-        this.app.use(apiRequestLogHandler(requestLogger));
+
+        if (this.logRequests) {
+            this.app.use(apiRequestLogHandler(requestLogger));
+        }
 
         this.routes = {...DEFAULT_ROUTES, ...routes || {}};
         Object.entries(this.routes).forEach(([path, routeFactory]) => {
@@ -75,7 +79,11 @@ export default class Server {
         });
 
         this.app.use(apiErrorHandler);
-        this.app.use(apiResponseLogHandler(requestLogger));
+
+        if (this.logRequests) {
+            this.app.use(apiResponseLogHandler(requestLogger));
+        }
+
         this.app.ws('/api/ws', this.wss.handleWebsocket);
     }
 

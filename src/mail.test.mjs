@@ -8,7 +8,6 @@ import {
     DEFAULT_EMAIL_SIGNATURE_PLACEHOLDER,
     EmailTemplates,
     Mailer,
-    SMTP_PORT,
     TEST_SMTP_HOST,
 } from './mail.mjs';
 import { TEST_EMAIL_MESSAGES } from './testutils.mjs';

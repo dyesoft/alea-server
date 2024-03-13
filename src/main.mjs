@@ -23,4 +23,5 @@ logger.info(`API server running on port ${config.server.port}...`)
 process.on('SIGINT', () => {
     logger.info('Received interrupt signal; shutting down API server...');
     server.stop().then(() => logger.info('Server shut down successfully.'));
+    process.exit();
 });

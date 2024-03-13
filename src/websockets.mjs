@@ -60,7 +60,7 @@ export class RoomLogger {
             this.db.rooms.getByID(roomID).then(room => {
                 const namespace = (room?.roomCode || roomID).toLowerCase().replaceAll('_', '-');
                 this.loggers[roomID] = log.get(`ws:${namespace}`);
-            });
+            }).catch(e => logger.info(`Error creating logger for room ${roomID}: ${e}`));
         }
         return this.loggers[roomID] || logger;
     }
@@ -86,6 +86,7 @@ export class WebsocketServer {
     /* Create a WebsocketServer using the given database connection. */
     constructor(db, config = {}) {
         this.db = db;
+        this.logEvents = config?.websocket?.logEvents ?? false;
         this.maxPlayersPerGame = config?.game?.maxPlayersPerGame || null;
         this.pingIntervalMillis = config?.websocket?.pingIntervalMillis ?? DEFAULT_PING_INTERVAL_MILLIS;
         this.reassignmentCheckDelayMillis = config?.websocket?.reassignmentCheckDelayMillis ?? DEFAULT_REASSIGNMENT_CHECK_DELAY_MILLIS;
@@ -170,25 +171,31 @@ export class WebsocketServer {
             logger.error(`Unknown room ID for ${event.eventType} event; skipping broadcast.`);
             return;
         }
-        this.roomLogger.debug(roomID, `Broadcasting ${event.eventType} event...`);
 
         let jsonEvent;
         const clients = Object.entries(this.getClients(roomID));
-        // Rotate array to randomize order in which clients receive events (to ensure fairness).
-        rotate(clients, randomIndex(clients)).forEach(([playerID, ws]) => {
-            if (!originatingPlayerID || playerID !== originatingPlayerID) {
-                if (!jsonEvent) {
-                    jsonEvent = JSON.stringify(event);
-                }
-                try {
-                    if (ws.readyState === WebSocket.OPEN) {
-                        ws.send(jsonEvent);
-                    }
-                } catch (e) {
-                    this.roomLogger.error(roomID, `Failed to send ${event.eventType} event to player ${playerID}: ${e}`);
-                }
+        if (clients) {
+            if (this.logEvents) {
+                const playerID = event.payload?.context?.playerID || event.payload?.playerID;
+                const player = (playerID ? ` [${this.getPlayerName(playerID)}]` : '');
+                this.roomLogger.info(roomID, `Broadcast: <=== ${event.eventType}${player}`);
             }
-        });
+            // Rotate array to randomize order in which clients receive events (to ensure fairness).
+            rotate(clients, randomIndex(clients)).forEach(([playerID, ws]) => {
+                if (!originatingPlayerID || playerID !== originatingPlayerID) {
+                    if (!jsonEvent) {
+                        jsonEvent = JSON.stringify(event);
+                    }
+                    try {
+                        if (ws.readyState === WebSocket.OPEN) {
+                            ws.send(jsonEvent);
+                        }
+                    } catch (e) {
+                        this.roomLogger.error(roomID, `Failed to send ${event.eventType} event to player ${playerID}: ${e}`);
+                    }
+                }
+            });
+        }
     }
 
     /*
@@ -206,6 +213,14 @@ export class WebsocketServer {
             }
             const eventType = event.eventType;
             if (this.eventHandlers.hasOwnProperty(eventType)) {
+                if (this.logEvents) {
+                    event.source = req.ip;
+                    const playerID = event.payload?.context?.playerID || event.payload?.playerID;
+                    const player = (playerID ? ` [${this.getPlayerName(playerID)}]` : '');
+                    const message = `Event:  ${event.source} ---> ${eventType}${player}`;
+                    const roomID = event.payload?.context?.roomID || event.payload?.roomID || NO_ROOM_KEY;
+                    this.roomLogger.info(roomID, message);
+                }
                 const handler = this.eventHandlers[eventType];
                 try {
                     await handler(ws, event);
@@ -268,6 +283,11 @@ export class WebsocketServer {
      */
     handleError(ws, event, message, status) {
         logger.error(`Error handling ${event.eventType} event: ${message} (${status})`);
+        if (this.logEvents) {
+            const message = `Error: ${event.source} <--- ${event.eventType}, status: ${status}`;
+            const roomID = event.payload?.context?.roomID || event.payload?.roomID || NO_ROOM_KEY;
+            this.roomLogger.info(roomID, message);
+        }
         if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify(new WebsocketEvent(EventTypes.ERROR, {eventType: event.eventType, error: message, status: status})));
         }

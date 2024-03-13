@@ -270,11 +270,13 @@ describe('WebsocketServer', () => {
                     maxPlayersPerGame: maxPlayers,
                 },
                 websocket: {
+                    logEvents: true,
                     reassignmentCheckDelayMillis: reassignmentCheckMillis,
                 },
             };
             const wss = new WebsocketServer(mockDB, config);
             expect(wss.db).toBe(mockDB);
+            expect(wss.logEvents).toBeTruthy();
             expect(wss.maxPlayersPerGame).toEqual(maxPlayers);
             expect(wss.reassignmentCheckDelayMillis).toEqual(reassignmentCheckMillis);
             expect(wss.roomLogger).toBeDefined();

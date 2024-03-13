@@ -27,7 +27,7 @@ export function apiErrorHandler(err, req, res, next) {
 /* Returns a custom express middleware function to log API requests using the given logger. */
 export function apiRequestLogHandler(logger) {
     return (req, res, next) => {
-        logger.debug(`Request:  ${req.ip} ---> ${req.method} ${req.url}`);
+        logger.info(`Request:  ${req.ip} ---> ${req.method} ${req.url}`);
         next();
     };
 }
@@ -35,7 +35,7 @@ export function apiRequestLogHandler(logger) {
 /* Returns a custom express middleware function to log API responses using the given logger. */
 export function apiResponseLogHandler(logger) {
     return (req, res, next) => {
-        logger.debug(`Response: ${req.ip} <--- ${req.method} ${req.url}, status: ${res.statusCode}`);
+        logger.info(`Response: ${req.ip} <--- ${req.method} ${req.url}, status: ${res.statusCode}`);
         next();
     };
 }

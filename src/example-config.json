@@ -12,7 +12,8 @@
     "maxPlayersPerGame": 5
   },
   "server": {
-    "port": 3456
+    "port": 3456,
+    "logRequests": true
   },
   "smtp": {
     "host": "smtp.ethereal.email",
@@ -26,6 +27,7 @@
     "keyPath": ""
   },
   "websocket": {
+    "logEvents": true,
     "pingIntervalMillis": 5000,
     "reassignmentCheckDelayMillis": 30000
   },

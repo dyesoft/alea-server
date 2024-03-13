@@ -21,6 +21,7 @@ describe('Server', () => {
             expect(server.config).toBe(config);
             expect(server.db).toBe(mockDB);
             expect(server.mailer).toBe(mockMailer);
+            expect(server.logRequests).toBeDefined();
             expect(server.port).toBeDefined();
             expect(server.wss).toBeDefined();
             expect(server.app).toBeDefined();
@@ -48,6 +49,7 @@ describe('Server', () => {
                 },
                 server: {
                     port: port,
+                    logRequests: true,
                 },
                 smtp: {
                     host: TEST_SMTP_HOST,
@@ -56,6 +58,7 @@ describe('Server', () => {
             };
             server = await Server.new(config);
             expect(server.config).toBe(config);
+            expect(server.logRequests).toBeTruthy();
             expect(server.port).toEqual(port);
             expect(server.db).toBeDefined();
             expect(server.mailer).toBeDefined();
@@ -72,6 +75,7 @@ describe('Server', () => {
             expect(server.config).toBe(config);
             expect(server.db).toBe(mockDB);
             expect(server.mailer).toBe(mockMailer);
+            expect(server.logRequests).toBeDefined();
             expect(server.port).toBeDefined();
             expect(server.wss).toBeDefined();
             expect(server.app).toBeDefined();
