@@ -113,6 +113,8 @@ export class WebsocketServer {
             [EventTypes.ABANDON_GAME]: this.handleAbandonGame.bind(this),
             [EventTypes.KICK_PLAYER]: this.handleKickPlayer.bind(this),
         };
+
+        this.handleWebsocket = this.handleWebsocket.bind(this);
     }
 
     /* Associate the given websocket client connection with the given room ID and player ID. */
@@ -749,7 +751,7 @@ export class WebsocketServer {
     reassignRoomHostIfNecessary(roomID, playerID) {
         setTimeout(async () => {
             const room = await this.db.rooms.getByID(roomID);
-            if (room.hostPlayerID === playerID) {
+            if (room?.hostPlayerID === playerID) {
                 const player = await this.db.players.getByID(playerID);
                 if (player.currentRoomID && player.currentRoomID !== roomID) {
                     await this.removePlayerFromRoom(player, roomID);

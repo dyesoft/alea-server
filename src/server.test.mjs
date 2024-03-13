@@ -1,19 +1,45 @@
-import { describe, expect, jest, test } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { TEST_SMTP_HOST } from './mail.mjs';
 import Server from './server.mjs';
 
 describe('Server', () => {
-    describe('constructor', () => {
-        // NOTE: The /api prefix will be added by the constructor.
-        const expectedDefaultRoutes = [
-            'game',
-            'player',
-            'request',
-            'room',
-            'status',
-        ];
+    // NOTE: The /api prefix will be added by the constructor.
+    const expectedDefaultRoutes = [
+        'game',
+        'player',
+        'request',
+        'room',
+        'status',
+    ];
 
-        test('with config', () => {
+    describe('constructor', () => {
+        test('sets expected fields', () => {
+            const config = {};
+            const mockDB = {};
+            const mockMailer = {};
+            const server = new Server(config, mockDB, mockMailer);
+            expect(server.config).toBe(config);
+            expect(server.db).toBe(mockDB);
+            expect(server.mailer).toBe(mockMailer);
+            expect(server.port).toBeDefined();
+            expect(server.wss).toBeDefined();
+            expect(server.app).toBeDefined();
+            expect(Object.keys(server.routes)).toEqual(expectedDefaultRoutes);
+        });
+    });
+
+    describe('new', () => {
+        const mockDB = {
+            close: jest.fn(),
+        };
+
+        let server;
+
+        afterEach(async () => {
+            await server.stop();
+        });
+
+        test('with config', async () => {
             const port = 6543;
             const config = {
                 admin: {},
@@ -28,7 +54,7 @@ describe('Server', () => {
                 },
                 messages: {},
             };
-            const server = new Server(config);
+            server = await Server.new(config);
             expect(server.config).toBe(config);
             expect(server.port).toEqual(port);
             expect(server.db).toBeDefined();
@@ -39,11 +65,10 @@ describe('Server', () => {
             expect(Object.keys(server.routes)).toEqual(expectedDefaultRoutes);
         });
 
-        test('with config, DB, and mailer', () => {
+        test('with config, DB, and mailer', async () => {
             const config = {};
-            const mockDB = {};
             const mockMailer = {};
-            const server = new Server(config, mockDB, mockMailer);
+            server = await Server.new(config, mockDB, mockMailer);
             expect(server.config).toBe(config);
             expect(server.db).toBe(mockDB);
             expect(server.mailer).toBe(mockMailer);
@@ -54,9 +79,7 @@ describe('Server', () => {
             expect(Object.keys(server.routes)).toEqual(expectedDefaultRoutes);
         });
 
-        test('additional custom routes', () => {
-            const mockDB = {};
-            const mockMailer = {};
+        test('additional custom routes', async () => {
             const mockRouteDef = {
                 getRouter: jest.fn().mockReturnValue({}),
             };
@@ -64,40 +87,23 @@ describe('Server', () => {
             const routes = {
                 [path]: jest.fn().mockReturnValue(mockRouteDef),
             };
-            const server = new Server({}, mockDB, mockMailer, routes);
+            server = await Server.new({}, mockDB, {}, routes);
             expect(Object.keys(server.routes)).toEqual(expectedDefaultRoutes.concat(Object.keys(routes)));
             expect(routes[path]).toHaveBeenCalledWith(server);
             expect(mockRouteDef.getRouter).toHaveBeenCalled();
         });
 
-        test('override default routes', () => {
-            const mockDB = {};
-            const mockMailer = {};
+        test('override default routes', async () => {
             const mockRouteDef = {
                 getRouter: jest.fn().mockReturnValue({}),
             };
             const routes = {
                 game: jest.fn().mockReturnValue(mockRouteDef),
             };
-            const server = new Server({}, mockDB, mockMailer, routes);
+            server = await Server.new({}, mockDB, {}, routes);
             expect(Object.keys(server.routes)).toEqual(expectedDefaultRoutes);
             expect(routes.game).toHaveBeenCalledWith(server);
             expect(mockRouteDef.getRouter).toHaveBeenCalled();
-        });
-    });
-
-    describe('init', () => {
-        test('initializes DB and mailer', async () => {
-            const mockDB = {
-                init: jest.fn(),
-            };
-            const mockMailer = {
-                init: jest.fn(),
-            };
-            const server = new Server({}, mockDB, mockMailer);
-            await server.init();
-            expect(mockDB.init).toHaveBeenCalled();
-            expect(mockMailer.init).toHaveBeenCalled();
         });
     });
 

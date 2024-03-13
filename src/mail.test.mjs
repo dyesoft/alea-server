@@ -196,11 +196,20 @@ describe('EmailTemplates', () => {
 });
 
 describe('Mailer', () => {
-    describe('init', () => {
+    describe('constructor', () => {
+        test('sets expected fields', () => {
+            const mockTransporter = {};
+            const mailer = new Mailer(TEST_CONFIG, mockTransporter);
+            expect(mailer.adminEmail).toEqual(TEST_CONFIG.admin.email);
+            expect(mailer.smtpConfig).toEqual(TEST_CONFIG.smtp);
+            expect(mailer.messages).toEqual(TEST_CONFIG.messages.email);
+            expect(mailer.transporter).toBe(mockTransporter);
+        });
+    })
+
+    describe('new', () => {
         test('creates transporter from SMTP config', async () => {
-            const mailer = new Mailer(TEST_CONFIG);
-            expect(mailer.transporter).toBeNull();
-            await mailer.init();
+            const mailer = await Mailer.new(TEST_CONFIG);
             expect(mailer.transporter).not.toBeNull();
         });
     });
@@ -212,8 +221,7 @@ describe('Mailer', () => {
         });
 
         test('sends message using transporter', async () => {
-            const mailer = new Mailer(TEST_CONFIG);
-            await mailer.init();
+            const mailer = await Mailer.new(TEST_CONFIG);
             await mailer.sendMail(TEST_USER_EMAIL, 'Test subject', 'Test body');
             const success = await mailer.transporter.verify();
             expect(success).toBeTruthy();

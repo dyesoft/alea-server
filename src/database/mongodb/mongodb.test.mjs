@@ -13,78 +13,77 @@ const TEST_ROOM_CODE = 'TEST';
 
 describe('MongoDB', () => {
     describe('constructor', () => {
-        const TEST_DB_HOST = 'localhost';
-        const TEST_DB_PORT = 12345;
-        const TEST_DB_URL = `mongodb://${TEST_DB_HOST}:${TEST_DB_PORT}/`;
-
         test('sets expected fields', () => {
-            const config = {
-                db: {
-                    name: TEST_DB_NAME,
-                    url: TEST_DB_URL,
-                },
+            const mockDB = {};
+            const mockSession = {};
+            const mockClient = {
+                url: '',
+                db: jest.fn().mockReturnValue(mockDB),
+                startSession: jest.fn().mockReturnValue(mockSession),
             };
-            const mongodb = new MongoDB(config);
+            const mongodb = new MongoDB(mockClient, TEST_DB_NAME);
+            expect(mongodb.client).toBe(mockClient);
             expect(mongodb.dbName).toEqual(TEST_DB_NAME);
-            expect(mongodb.client).toBeDefined();
-            expect(mongodb.session).toBeNull();
-            expect(mongodb.db).toBeNull();
-            expect(mongodb.games).toBeNull();
-            expect(mongodb.players).toBeNull();
-            expect(mongodb.rooms).toBeNull();
-            expect(mongodb.roomLinkRequests).toBeNull();
-        });
-
-        test('URL in config', () => {
-            const config = {
-                db: {url: TEST_DB_URL},
-            };
-            const mongodb = new MongoDB(config);
-            expect(mongodb.url).toEqual(TEST_DB_URL);
-        });
-
-        test('host and port in config', () => {
-            const config = {
-                db: {
-                    host: TEST_DB_HOST,
-                    port: TEST_DB_PORT,
-                },
-            };
-            const mongodb = new MongoDB(config);
-            expect(mongodb.url).toEqual(TEST_DB_URL);
-        });
-
-        test('additional custom collections', () => {
-            const config = {
-                db: {url: TEST_DB_URL},
-            };
-            const collections = {
-                tests: jest.fn(),
-            };
-            const mongodb = new MongoDB(config, collections);
-            expect(mongodb.games).toBeNull();
-            expect(mongodb.players).toBeNull();
-            expect(mongodb.rooms).toBeNull();
-            expect(mongodb.roomLinkRequests).toBeNull();
-            expect(mongodb.tests).toBeNull();
-            expect(collections.tests).not.toHaveBeenCalled();
+            expect(mongodb.url).not.toBeNull();
+            expect(mongodb.db).toBe(mockDB);
+            expect(mongodb.session).toBe(mockSession);
+            expect(mongodb.games).not.toBeNull();
+            expect(mongodb.players).not.toBeNull();
+            expect(mongodb.rooms).not.toBeNull();
+            expect(mongodb.roomLinkRequests).not.toBeNull();
         });
     });
 
-    describe('init', () => {
+    describe('new', () => {
+        let mongodb;
+
+        afterEach(async () => {
+            await mongodb.close();
+        })
+
+        test('DB name in config', async () => {
+            const config = {
+                db: {
+                    name: TEST_DB_NAME,
+                    url: global.__MONGO_URI__,
+                },
+            };
+            mongodb = await MongoDB.new(config);
+            expect(mongodb.dbName).toEqual(TEST_DB_NAME);
+        });
+
+        test('URL in config', async () => {
+            const config = {
+                db: {url: global.__MONGO_URI__},
+            };
+            mongodb = await MongoDB.new(config);
+            expect(mongodb.client).not.toBeNull();
+        });
+
+        test('host and port in config', async () => {
+            const strippedURL = global.__MONGO_URI__.replaceAll('mongodb://', '').replaceAll('/', '');
+            const [host, port] = strippedURL.split(':');
+            const config = {
+                db: {
+                    host: host,
+                    port: port,
+                },
+            };
+            mongodb = await MongoDB.new(config);
+            expect(mongodb.client).not.toBeNull();
+        });
+
         test('creates session, DB, and collections', async () => {
             const config = {
                 db: {url: global.__MONGO_URI__},
             };
-            const mongodb = new MongoDB(config);
-            await mongodb.init();
+            mongodb = await MongoDB.new(config);
             expect(mongodb.session).not.toBeNull();
             expect(mongodb.db).not.toBeNull();
             expect(mongodb.games).not.toBeNull();
             expect(mongodb.players).not.toBeNull();
             expect(mongodb.rooms).not.toBeNull();
             expect(mongodb.roomLinkRequests).not.toBeNull();
-            await mongodb.close();
         });
 
         test('additional custom collections', async () => {
@@ -95,15 +94,13 @@ describe('MongoDB', () => {
             const collections = {
                 tests: jest.fn().mockReturnValue(mockCollection),
             };
-            const mongodb = new MongoDB(config, collections);
-            await mongodb.init();
+            mongodb = await MongoDB.new(config, collections);
             expect(mongodb.games).not.toBeNull();
             expect(mongodb.players).not.toBeNull();
             expect(mongodb.rooms).not.toBeNull();
             expect(mongodb.roomLinkRequests).not.toBeNull();
             expect(mongodb.tests).toBe(mockCollection);
             expect(collections.tests).toHaveBeenCalledWith(mongodb.db);
-            await mongodb.close();
         });
 
         test('override default collections', async () => {
@@ -114,14 +111,12 @@ describe('MongoDB', () => {
             const collections = {
                 games: jest.fn().mockReturnValue(mockCollection),
             };
-            const mongodb = new MongoDB(config, collections);
-            await mongodb.init();
+            mongodb = await MongoDB.new(config, collections);
             expect(mongodb.games).toBe(mockCollection);
             expect(mongodb.players).not.toBeNull();
             expect(mongodb.rooms).not.toBeNull();
             expect(mongodb.roomLinkRequests).not.toBeNull();
             expect(collections.games).toHaveBeenCalledWith(mongodb.db);
-            await mongodb.close();
         });
     });
 
@@ -130,8 +125,7 @@ describe('MongoDB', () => {
             const config = {
                 db: {url: global.__MONGO_URI__},
             };
-            const mongodb = new MongoDB(config);
-            await mongodb.init();
+            const mongodb = await MongoDB.new(config);
             await expect(async () => await mongodb.command({ping: 1})).resolves;
             await mongodb.close();
         });

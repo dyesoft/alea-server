@@ -18,7 +18,7 @@ describe('PlayerAPI', () => {
     beforeAll(async () => {
         db = await getTestDB();
         wss = new WebsocketServer(db);
-        mailer = getTestMailer();
+        mailer = await getTestMailer();
         api = new PlayerAPI(db, wss, mailer);
     });
 

@@ -14,7 +14,7 @@ describe('RoomLinkRequestAPI', () => {
 
     beforeAll(async () => {
         db = await getTestDB();
-        mailer = getTestMailer();
+        mailer = await getTestMailer();
         api = new RoomLinkRequestAPI(db, mailer);
     });
 

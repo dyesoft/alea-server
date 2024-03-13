@@ -40,16 +40,14 @@ export async function getTestDB() {
             url: global.__MONGO_URI__,
         },
     };
-    const db = new MongoDB(config);
-    await db.init();
-    return db;
+    return await MongoDB.new(config);
 }
 
-export function getTestMailer() {
+export async function getTestMailer() {
     const config = {
         admin: {},
         smtp: {host: TEST_SMTP_HOST},
         messages: {email: TEST_EMAIL_MESSAGES},
     };
-    return new Mailer(config);
+    return await Mailer.new(config);
 }

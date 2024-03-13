@@ -22,12 +22,18 @@ export const PLAYER_ID_PLACEHOLDER = '{{PLAYER_ID}}';
 export const REQUEST_ID_PLACEHOLDER = '{{REQUEST_ID}}';
 export const ROOM_PLACEHOLDER = '{{ROOM}}';
 
+/* A simple templating solution to populate an email subject template and body template with appropriate messages. */
 export class EmailTemplates {
+    /* Create email templates using the given subject and body templates. */
     constructor(subjectTemplate, bodyTemplate) {
         this.subjectTemplate = subjectTemplate;
         this.bodyTemplate = bodyTemplate;
     }
 
+    /*
+     * Apply the templates, using the messages configured on the mailer.
+     * The return value is an object containing the subject and body of the email.
+     */
     apply(mailer) {
         return {
             subject: `[${mailer.messages.app.name}] ` + this.subjectTemplate.replaceAll(APP_NAME_PLACEHOLDER, mailer.messages.app.name),
@@ -132,31 +138,37 @@ const ROOM_REQUEST_CREATED_TEMPLATE = new EmailTemplates(
 
 const logger = log.get('mail');
 
+/* Email client that connects to an SMTP server to send emails. */
 export class Mailer {
-    constructor(config) {
+    /*
+     * Create a new mailer using the given configuration and transporter.
+     * NOTE: The static factory method Mailer.new() should typically be used instead of invoking this constructor!
+     */
+    constructor(config, transporter = null) {
         this.adminEmail = config.admin.email;
         this.smtpConfig = config.smtp;
         this.messages = config.messages.email;
-        this.transporter = null;
+        this.transporter = transporter;
     }
 
-    async init() {
-        if (this.transporter) {
-            return;
-        }
+    /* Return a new Mailer using the given config. */
+    static async new(config) {
+        config = config || {};
+        const smtpConfig = config.smtp || {};
+        let transporter = null;
         try {
             let user, password;
-            if (this.smtpConfig.host === TEST_SMTP_HOST) {
+            if (smtpConfig.host === TEST_SMTP_HOST) {
                 const testAccount = await nodemailer.createTestAccount();
                 user = testAccount.user;
                 password = testAccount.pass;
             } else {
-                user = this.smtpConfig.user;
-                password = this.smtpConfig.password;
+                user = smtpConfig.user;
+                password = smtpConfig.password;
             }
-            this.transporter = nodemailer.createTransport({
-                host: this.smtpConfig.host,
-                port: this.smtpConfig.port || SMTP_PORT,
+            transporter = nodemailer.createTransport({
+                host: smtpConfig.host,
+                port: smtpConfig.port || SMTP_PORT,
                 secure: false, // true for 465, false for other ports
                 auth: {
                     user: user,
@@ -166,11 +178,13 @@ export class Mailer {
         } catch (e) {
             logger.error(`Failed to initialize mail transport: ${e}`);
         }
+        return new Mailer(config, transporter);
     }
 
+    /* Send a plain-text email message to the given address with the given subject and body. */
     async sendMail(to, subject, body) {
         if (!this.transporter) {
-            logger.error('Failed to send mail: mail transport was not initialized successfully');
+            logger.info('Not attempting to send mail: mail transport was not initialized successfully');
             return;
         }
         const message = {
@@ -191,6 +205,7 @@ export class Mailer {
         }
     }
 
+    /* Send a message to a player's previous email address to notify them that their email address was changed. */
     async sendPlayerEmailUpdatedMessage(name, newEmail, prevEmail) {
         newEmail = newEmail || '';
         prevEmail = prevEmail || '';
@@ -203,6 +218,7 @@ export class Mailer {
         await this.sendMail(prevEmail, subject, body);
     }
 
+    /* Send a message to a player to confirm that their email address was registered successfully. */
     async sendPlayerRegisteredMessage(player) {
         const { email, name } = player;
         let { subject, body } = PLAYER_REGISTERED_TEMPLATE.apply(this);
@@ -211,6 +227,7 @@ export class Mailer {
         await this.sendMail(email, subject, body);
     }
 
+    /* Send a message to a player with a link to restore their previous player account. */
     async sendPlayerRetrievalMessage(player) {
         const { email, name, playerID } = player;
         let { subject, body } = PLAYER_RETRIEVAL_TEMPLATE.apply(this);
@@ -219,6 +236,7 @@ export class Mailer {
         await this.sendMail(email, subject, body);
     }
 
+    /* Send a message to the owner of a new room to confirm that the room was created successfully. */
     async sendRoomCreatedMessage(roomCode, roomLinkRequest) {
         const { email, name } = roomLinkRequest;
         let { subject, body } = ROOM_CREATED_TEMPLATE.apply(this);
@@ -227,6 +245,7 @@ export class Mailer {
         await this.sendMail(email, subject, body);
     }
 
+    /* Send a message to a user who requested a new room link to notify them that their request was approved by an admin. */
     async sendRoomLinkRequestApprovedMessage(roomLinkRequest) {
         const { email, name, requestID } = roomLinkRequest;
         let { subject, body } = ROOM_REQUEST_APPROVED_TEMPLATE.apply(this);
@@ -235,6 +254,7 @@ export class Mailer {
         await this.sendMail(email, subject, body);
     }
 
+    /* Send a message to the admin email address to notify them that a new room link request was just submitted. */
     async sendRoomLinkRequestCreatedMessage(roomLinkRequest) {
         const { email, name } = roomLinkRequest;
         let { subject, body } = ROOM_REQUEST_CREATED_TEMPLATE.apply(this);

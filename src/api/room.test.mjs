@@ -29,7 +29,7 @@ describe('RoomAPI', () => {
     beforeAll(async () => {
         db = await getTestDB();
         wss = new WebsocketServer(db);
-        mailer = getTestMailer();
+        mailer = await getTestMailer();
         api = new RoomAPI(db, wss, mailer, [ADMIN_PLAYER_ID]);
     });
 

@@ -15,8 +15,7 @@ const logger = log.get('main');
 const version = '0.1.0';
 config.packageVersion = version;
 
-const server = new Server(config);
-await server.init();
+const server = await Server.new(config);
 server.run();
 
 logger.info(`API server running on port ${config.server.port}...`)

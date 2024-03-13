@@ -24,28 +24,16 @@ const logger = log.get('mongodb');
 
 /* Database client that connects to a MongoDB database. */
 export class MongoDB {
-    /* Create a MongoDB using the given config and database name. */
-    constructor(config, collections = {}) {
-        this.url = config.db?.url || `mongodb://${config.db?.host}:${config.db?.port}/`;
-        this.dbName = config.db?.name || DEFAULT_DB_NAME;
-        this.client = new MongoClient(this.url, MONGO_CLIENT_OPTIONS);
-        this.session = null;
-        this.db = null;
-
-        this.collectionFactories = {...DEFAULT_COLLECTIONS, ...collections || {}};
-        Object.keys(this.collectionFactories).forEach(collectionName => {
-            this[collectionName] = null;
-        });
-    }
-
-    /* Initialize the underlying connection to the database. */
-    async init() {
-        if (this.db) {
-            return;
-        }
-        await this.client.connect();
-        this.session = this.client.startSession();
+    /*
+     * Create a MongoDB using the given database name, client, and optional override collections.
+     * NOTE: The static factory method MongoDB.new() should typically be used instead of invoking this constructor!
+     */
+    constructor(mongoClient, dbName = DEFAULT_DB_NAME, collections = {}) {
+        this.client = mongoClient;
+        this.dbName = dbName || DEFAULT_DB_NAME;
         this.db = this.client.db(this.dbName);
+        this.session = this.client.startSession();
+        this.collectionFactories = {...DEFAULT_COLLECTIONS, ...collections || {}};
         Object.entries(this.collectionFactories).forEach(([collectionName, collectionFactory]) => {
             try {
                 const collection = collectionFactory(this.db);
@@ -56,6 +44,14 @@ export class MongoDB {
                 logger.error(`Failed to initialize ${collectionName} collection: ${e}`);
             }
         });
+    }
+
+    /* Return a new MongoDB using the given config and optional override collections. */
+    static async new(config, collections = {}) {
+        const url = config?.db?.url || `mongodb://${config?.db?.host}:${config?.db?.port}/`;
+        const client = new MongoClient(url, MONGO_CLIENT_OPTIONS);
+        await client.connect();
+        return new MongoDB(client, config?.db?.name, collections);
     }
 
     /* Close the underlying connection to the database. */
