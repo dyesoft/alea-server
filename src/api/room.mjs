@@ -1,6 +1,9 @@
 import log from 'log';
 import {
     EventTypes,
+    getAugmentedPlayerStats,
+    getPlaces,
+    LeaderboardKeys,
     MAX_PASSWORD_LENGTH,
     Room,
     RoomLinkRequestResolution,
@@ -23,6 +26,7 @@ class RoomAPI extends APIRouteDefinition {
         this.post('/', this.handleCreateRoom.bind(this));
         this.get('/:roomID', this.handleGetRoom.bind(this));
         this.get('/:roomID/history', this.handleGetRoomHistory.bind(this));
+        this.get('/:roomID/leaderboard', this.handleGetRoomLeaderboard.bind(this));
     }
 
     /* Handler for GET /room. */
@@ -163,6 +167,55 @@ class RoomAPI extends APIRouteDefinition {
         } else {
             error(`Room "${roomID}" not found`, StatusCodes.NOT_FOUND);
         }
+    }
+
+    /* Handler for GET /room/:roomID/leaderboard. */
+    async handleGetRoomLeaderboard(req, res, error) {
+        const roomID = req.params.roomID;
+        const room = await (roomID.length === ROOM_CODE_LENGTH ? this.db.rooms.getByRoomCode(roomID) : this.db.rooms.getByID(roomID));
+        if (!room) {
+            error(`Room "${roomID}" not found`, StatusCodes.NOT_FOUND);
+            return;
+        }
+
+        const playerIDs = room.playerIDs;
+        if (!playerIDs.includes(room.ownerPlayerID)) {
+            playerIDs.push(room.ownerPlayerID);
+        }
+
+        let players;
+        try {
+            players = await this.db.players.getByIDs(playerIDs);
+        } catch (e) {
+            error('Failed to get players', StatusCodes.INTERNAL_SERVER_ERROR);
+            return;
+        }
+
+        /* calculate percentages */
+        players.forEach(player => player.stats = getAugmentedPlayerStats(player.stats));
+
+        /* average score */
+        players.forEach(player => player.score = player.stats[LeaderboardKeys.AVERAGE_SCORE]);
+        const averageScoreLeaders = getPlaces(players);
+
+        /* single game score */
+        players.forEach(player => player.score = player.stats[LeaderboardKeys.HIGHEST_GAME_SCORE]);
+        const singleGameScoreLeaders = getPlaces(players);
+
+        /* overall score */
+        players.forEach(player => player.score = player.stats[LeaderboardKeys.OVERALL_SCORE]);
+        const overallScoreLeaders = getPlaces(players);
+
+        /* winning percentage */
+        players.forEach(player => player.score = player.stats[LeaderboardKeys.WINNING_PERCENTAGE]);
+        const winLeaders = getPlaces(players);
+
+        res.json({
+            [LeaderboardKeys.AVERAGE_SCORE]: averageScoreLeaders,
+            [LeaderboardKeys.HIGHEST_GAME_SCORE]: singleGameScoreLeaders,
+            [LeaderboardKeys.OVERALL_SCORE]: overallScoreLeaders,
+            [LeaderboardKeys.WINNING_PERCENTAGE]: winLeaders,
+        });
     }
 }
 

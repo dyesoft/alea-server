@@ -217,7 +217,7 @@ export class WebsocketServer {
                     event.source = req.ip;
                     const playerID = event.payload?.context?.playerID || event.payload?.playerID;
                     const player = (playerID ? ` [${this.getPlayerName(playerID)}]` : '');
-                    const message = `Event:  ${event.source} ---> ${eventType}${player}`;
+                    const message = `Event: ${event.source} ---> ${eventType}${player}`;
                     const roomID = event.payload?.context?.roomID || event.payload?.roomID || NO_ROOM_KEY;
                     this.roomLogger.info(roomID, message);
                 }

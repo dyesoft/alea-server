@@ -1,6 +1,6 @@
 import {
-    EventTypes,
-    Player,
+    EventTypes, LeaderboardKeys,
+    Player, PlayerStatsKeys,
     Room,
     RoomLinkRequest,
     RoomLinkRequestResolution,
@@ -53,7 +53,7 @@ describe('RoomAPI', () => {
         });
 
         test('creates expected routes', () => {
-            expect(api._router.stack).toHaveLength(4);
+            expect(api._router.stack).toHaveLength(5);
 
             const getRoomsRoute = api._router.stack[0].route;
             expect(getRoomsRoute.path).toEqual('/');
@@ -70,6 +70,10 @@ describe('RoomAPI', () => {
             const getRoomHistoryRoute = api._router.stack[3].route;
             expect(getRoomHistoryRoute.path).toEqual('/:roomID/history');
             expect(getRoomHistoryRoute.methods).toEqual({get: true});
+
+            const getRoomLeaderboardRoute = api._router.stack[4].route;
+            expect(getRoomLeaderboardRoute.path).toEqual('/:roomID/leaderboard');
+            expect(getRoomLeaderboardRoute.methods).toEqual({get: true});
         });
     });
 
@@ -342,6 +346,106 @@ describe('RoomAPI', () => {
         test('room not found', async () => {
             const roomID = 'room';
             const response = await app(api).get(`/${roomID}/history`);
+            expect(response.status).toEqual(StatusCodes.NOT_FOUND);
+            expect(response.body.error).toEqual(`Room "${roomID}" not found`);
+        });
+    });
+
+    describe('handleGetRoomLeaderboard', () => {
+        let players;
+        let expectedLeaderboard;
+
+        function playerWithScore(player, score) {
+            return {playerID: player.playerID, name: player.name, score: score};
+        }
+
+        beforeEach(async () => {
+            players = [
+                new Player('Fred'),
+                new Player('Barney'),
+                new Player('Betty'),
+                new Player('Wilma'),
+            ];
+            // Fred has the highest average score.
+            players[0].stats = {
+                [PlayerStatsKeys.GAMES_PLAYED]: 4,
+                [PlayerStatsKeys.GAMES_WON]: 1,
+                [PlayerStatsKeys.HIGHEST_GAME_SCORE]: 100,
+                [PlayerStatsKeys.OVERALL_SCORE]: 2000,
+            };
+            // Barney has the highest single-game score.
+            players[1].stats = {
+                [PlayerStatsKeys.GAMES_PLAYED]: 10,
+                [PlayerStatsKeys.GAMES_WON]: 1,
+                [PlayerStatsKeys.HIGHEST_GAME_SCORE]: 1000,
+                [PlayerStatsKeys.OVERALL_SCORE]: 4000,
+            };
+            // Betty has the highest overall score.
+            players[2].stats = {
+                [PlayerStatsKeys.GAMES_PLAYED]: 20,
+                [PlayerStatsKeys.GAMES_WON]: 1,
+                [PlayerStatsKeys.HIGHEST_GAME_SCORE]: 200,
+                [PlayerStatsKeys.OVERALL_SCORE]: 5000,
+            };
+            // Wilma has the highest winning percentage.
+            players[3].stats = {
+                [PlayerStatsKeys.GAMES_PLAYED]: 20,
+                [PlayerStatsKeys.GAMES_WON]: 15,
+                [PlayerStatsKeys.HIGHEST_GAME_SCORE]: 250,
+                [PlayerStatsKeys.OVERALL_SCORE]: 2000,
+            };
+            await db.players.createMany(players);
+
+            expectedLeaderboard = {
+                [LeaderboardKeys.AVERAGE_SCORE]: {
+                    '1st': [playerWithScore(players[0], 500)],
+                    '2nd': [playerWithScore(players[1], 400)],
+                    '3rd': [playerWithScore(players[2], 250)],
+                    '4th': [playerWithScore(players[3], 100)],
+                },
+                [LeaderboardKeys.HIGHEST_GAME_SCORE]: {
+                    '1st': [playerWithScore(players[1], 1000)],
+                    '2nd': [playerWithScore(players[3], 250)],
+                    '3rd': [playerWithScore(players[2], 200)],
+                    '4th': [playerWithScore(players[0], 100)],
+                },
+                [LeaderboardKeys.OVERALL_SCORE]: {
+                    '1st': [playerWithScore(players[2], 5000)],
+                    '2nd': [playerWithScore(players[1], 4000)],
+                    '3rd': [playerWithScore(players[3], 2000), playerWithScore(players[0], 2000)],
+                },
+                [LeaderboardKeys.WINNING_PERCENTAGE]: {
+                    '1st': [playerWithScore(players[3], 75)],
+                    '2nd': [playerWithScore(players[0], 25)],
+                    '3rd': [playerWithScore(players[1], 10)],
+                    '4th': [playerWithScore(players[2], 5)],
+                },
+            };
+        });
+
+        test('get leaderboard by room code', async () => {
+            const room = new Room(ROOM_CODE, players[0].playerID);
+            room.playerIDs = players.map(player => player.playerID);
+            await db.rooms.create(room);
+
+            const response = await app(api).get(`/${room.roomCode}/leaderboard`);
+            expect(response.ok).toBeTruthy();
+            expect(response.body).toEqual(expectedLeaderboard);
+        });
+
+        test('get leaderboard by room ID', async () => {
+            const room = new Room(ROOM_CODE, players[0].playerID);
+            room.playerIDs = players.map(player => player.playerID);
+            await db.rooms.create(room);
+
+            const response = await app(api).get(`/${room.roomID}/leaderboard`);
+            expect(response.ok).toBeTruthy();
+            expect(response.body).toEqual(expectedLeaderboard);
+        });
+
+        test('room not found', async () => {
+            const roomID = 'room';
+            const response = await app(api).get(`/${roomID}/leaderboard`);
             expect(response.status).toEqual(StatusCodes.NOT_FOUND);
             expect(response.body.error).toEqual(`Room "${roomID}" not found`);
         });
