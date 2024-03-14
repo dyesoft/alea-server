@@ -113,9 +113,10 @@ export class WebsocketServer {
             /* host-only events */
             [EventTypes.ABANDON_GAME]: this.handleAbandonGame.bind(this),
             [EventTypes.KICK_PLAYER]: this.handleKickPlayer.bind(this),
-            /* custom events */
-            ...eventHandlers,
         };
+
+        /* custom event handlers */
+        Object.entries(eventHandlers).forEach(([eventType, handler]) => this.eventHandlers[eventType] = handler.bind(this));
 
         this.handleWebsocket = this.handleWebsocket.bind(this);
     }

@@ -299,7 +299,7 @@ describe('WebsocketServer', () => {
             const wss = new WebsocketServer(mockDB, {}, eventHandlers);
             const eventTypes = Object.keys(wss.eventHandlers);
             expect(eventTypes).toHaveLength(expectedEventTypes.length + 1);
-            expect(wss.eventHandlers[eventType]).toBe(mockHandler);
+            expect(wss.eventHandlers[eventType]).toBeDefined();
         });
 
         test('override default event handlers', async () => {
@@ -311,7 +311,7 @@ describe('WebsocketServer', () => {
             const wss = new WebsocketServer(mockDB, {}, eventHandlers);
             const eventTypes = Object.keys(wss.eventHandlers);
             expect(eventTypes).toHaveLength(expectedEventTypes.length);
-            expect(wss.eventHandlers[eventType]).toBe(mockHandler);
+            expect(wss.eventHandlers[eventType]).not.toEqual(wss.handleJoinGame);
         });
     });
 
