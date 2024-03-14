@@ -94,6 +94,7 @@ class GameAPI extends APIRouteDefinition {
         res.json(game);
         this.wss.broadcast(new WebsocketEvent(EventTypes.GAME_STARTED, {roomID, game}));
         logger.info(`Created game ${game.gameID}.`);
+        return game;
     }
 
     /* Handler for GET /game/:gameID. */
