@@ -261,9 +261,8 @@ describe('WebsocketServer', () => {
             EventTypes.KICK_PLAYER,
         ];
 
-        const mockDB = {};
-
         test('with db and config', () => {
+            const mockDB = {};
             const maxPlayers = 5;
             const reassignmentCheckMillis = 1000;
             const config = {
@@ -288,30 +287,6 @@ describe('WebsocketServer', () => {
             const eventTypes = Object.keys(wss.eventHandlers);
             expect(eventTypes).toHaveLength(expectedEventTypes.length);
             expect(eventTypes.sort()).toEqual(expectedEventTypes.sort());
-        });
-
-        test('additional custom event handlers', async () => {
-            const eventType = 'test';
-            const mockHandler = jest.fn();
-            const eventHandlers = {
-                [eventType]: mockHandler,
-            };
-            const wss = new WebsocketServer(mockDB, {}, eventHandlers);
-            const eventTypes = Object.keys(wss.eventHandlers);
-            expect(eventTypes).toHaveLength(expectedEventTypes.length + 1);
-            expect(wss.eventHandlers[eventType]).toBeDefined();
-        });
-
-        test('override default event handlers', async () => {
-            const eventType = EventTypes.JOIN_GAME;
-            const mockHandler = jest.fn();
-            const eventHandlers = {
-                [eventType]: mockHandler,
-            };
-            const wss = new WebsocketServer(mockDB, {}, eventHandlers);
-            const eventTypes = Object.keys(wss.eventHandlers);
-            expect(eventTypes).toHaveLength(expectedEventTypes.length);
-            expect(wss.eventHandlers[eventType]).not.toEqual(wss.handleJoinGame);
         });
     });
 
