@@ -32,16 +32,16 @@ const requestLogger = log.get('api');
 /* Server encapsulates the route definitions and resources needed to run an instance of the API server. */
 export default class Server {
     /*
-     * Create a new server using the given configuration and database connection.
+     * Create a new server using the given configuration and resources.
      * NOTE: The static factory method Server.new() should typically be used instead of invoking this constructor!
      */
-    constructor(config, db, mailer, routes = {}) {
+    constructor(config, db, mailer, wss, routes = {}) {
         this.config = config || {};
         this.db = db;
         this.mailer = mailer;
+        this.wss = wss;
         this.logRequests = this.config.server?.logRequests ?? false;
         this.port = this.config.server?.port || DEFAULT_PORT;
-        this.wss = new WebsocketServer(this.db, this.config);
         this.app = express();
 
         if (this.config.ssl?.certPath && this.config.ssl?.keyPath) {
@@ -87,8 +87,8 @@ export default class Server {
         this.app.ws('/api/ws', this.wss.handleWebsocket);
     }
 
-    /* Return a new Server using the given config and optional database, mailer, and override routes. */
-    static async new(config, db = null, mailer = null, routes = {}) {
+    /* Return a new Server using the given config and optional database, mailer, websocket server, and override routes. */
+    static async new(config, db = null, mailer = null, wss = null, routes = {}) {
         config = config || {};
         if (!db) {
             db = await MongoDB.new(config);
@@ -96,7 +96,10 @@ export default class Server {
         if (!mailer) {
             mailer = await Mailer.new(config);
         }
-        return new Server(config, db, mailer, routes);
+        if (!wss) {
+            wss = new WebsocketServer(db, config);
+        }
+        return new Server(config, db, mailer, wss, routes);
     }
 
     /* Run the server on the configured port. */

@@ -17,13 +17,16 @@ describe('Server', () => {
             const config = {};
             const mockDB = {};
             const mockMailer = {};
-            const server = new Server(config, mockDB, mockMailer);
+            const mockWSS = {
+                handleWebsocket: jest.fn(),
+            };
+            const server = new Server(config, mockDB, mockMailer, mockWSS);
             expect(server.config).toBe(config);
             expect(server.db).toBe(mockDB);
             expect(server.mailer).toBe(mockMailer);
+            expect(server.wss).toBe(mockWSS);
             expect(server.logRequests).toBeDefined();
             expect(server.port).toBeDefined();
-            expect(server.wss).toBeDefined();
             expect(server.app).toBeDefined();
             expect(Object.keys(server.routes)).toEqual(expectedDefaultRoutes);
         });
@@ -32,6 +35,10 @@ describe('Server', () => {
     describe('new', () => {
         const mockDB = {
             close: jest.fn(),
+        };
+
+        const mockWSS = {
+            handleWebsocket: jest.fn(),
         };
 
         let server;
@@ -68,16 +75,16 @@ describe('Server', () => {
             expect(Object.keys(server.routes)).toEqual(expectedDefaultRoutes);
         });
 
-        test('with config, DB, and mailer', async () => {
+        test('with config, DB, mailer, and websocket server', async () => {
             const config = {};
             const mockMailer = {};
-            server = await Server.new(config, mockDB, mockMailer);
+            server = await Server.new(config, mockDB, mockMailer, mockWSS);
             expect(server.config).toBe(config);
             expect(server.db).toBe(mockDB);
             expect(server.mailer).toBe(mockMailer);
+            expect(server.wss).toBe(mockWSS);
             expect(server.logRequests).toBeDefined();
             expect(server.port).toBeDefined();
-            expect(server.wss).toBeDefined();
             expect(server.app).toBeDefined();
             expect(server.server).toBeDefined();
             expect(Object.keys(server.routes)).toEqual(expectedDefaultRoutes);
@@ -91,7 +98,7 @@ describe('Server', () => {
             const routes = {
                 [path]: jest.fn().mockReturnValue(mockRouteDef),
             };
-            server = await Server.new({}, mockDB, {}, routes);
+            server = await Server.new({}, mockDB, {}, mockWSS, routes);
             expect(Object.keys(server.routes)).toEqual(expectedDefaultRoutes.concat(Object.keys(routes)));
             expect(routes[path]).toHaveBeenCalledWith(server);
             expect(mockRouteDef.getRouter).toHaveBeenCalled();
@@ -104,7 +111,7 @@ describe('Server', () => {
             const routes = {
                 game: jest.fn().mockReturnValue(mockRouteDef),
             };
-            server = await Server.new({}, mockDB, {}, routes);
+            server = await Server.new({}, mockDB, {}, mockWSS, routes);
             expect(Object.keys(server.routes)).toEqual(expectedDefaultRoutes);
             expect(routes.game).toHaveBeenCalledWith(server);
             expect(mockRouteDef.getRouter).toHaveBeenCalled();
@@ -112,7 +119,10 @@ describe('Server', () => {
     });
 
     describe('run', () => {
-        const server = new Server({}, {}, {});
+        const mockWSS = {
+            handleWebsocket: jest.fn(),
+        };
+        const server = new Server({}, {}, {}, mockWSS);
 
         test('starts server listening on configured port', () => {
             const mockHTTPServer = {
@@ -136,6 +146,10 @@ describe('Server', () => {
     });
 
     describe('stop', () => {
+        const mockWSS = {
+            handleWebsocket: jest.fn(),
+        };
+
         test('closes server and DB connections', async () => {
             const mockDB = {
                 close: jest.fn(),
@@ -144,7 +158,7 @@ describe('Server', () => {
                 listening: true,
                 close: jest.fn(),
             };
-            const server = new Server({}, mockDB, {});
+            const server = new Server({}, mockDB, {}, mockWSS);
             server.server = mockHTTPServer;
             await server.stop();
             expect(mockHTTPServer.close).toHaveBeenCalled();
@@ -159,7 +173,7 @@ describe('Server', () => {
                 listening: false,
                 close: jest.fn(),
             };
-            const server = new Server({}, mockDB, {});
+            const server = new Server({}, mockDB, {}, mockWSS);
             server.server = mockHTTPServer;
             await server.stop();
             expect(mockHTTPServer.close).not.toHaveBeenCalled();
