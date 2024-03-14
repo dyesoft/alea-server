@@ -84,7 +84,7 @@ export class RoomLogger {
 /* Server for managing websocket connections and handling websocket events. */
 export class WebsocketServer {
     /* Create a WebsocketServer using the given database connection. */
-    constructor(db, config = {}) {
+    constructor(db, config = {}, eventHandlers = {}) {
         this.db = db;
         this.logEvents = config?.websocket?.logEvents ?? false;
         this.maxPlayersPerGame = config?.game?.maxPlayersPerGame || null;
@@ -113,6 +113,8 @@ export class WebsocketServer {
             /* host-only events */
             [EventTypes.ABANDON_GAME]: this.handleAbandonGame.bind(this),
             [EventTypes.KICK_PLAYER]: this.handleKickPlayer.bind(this),
+            /* custom events */
+            ...eventHandlers,
         };
 
         this.handleWebsocket = this.handleWebsocket.bind(this);
